@@ -235,6 +235,14 @@ func allowed(list []string, origin string) bool {
 		if o == "*" || strings.EqualFold(o, origin) {
 			return true
 		}
+		// "https://*.example.com" matches any subdomain (preview deploys).
+		if scheme, host, ok := strings.Cut(o, "://*."); ok {
+			pre := strings.ToLower(scheme + "://")
+			low := strings.ToLower(origin)
+			if strings.HasPrefix(low, pre) && strings.HasSuffix(low, "."+strings.ToLower(host)) {
+				return true
+			}
+		}
 	}
 	return false
 }
