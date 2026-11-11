@@ -1,0 +1,6 @@
+<clickhouse>
+    <!-- Allows the query API to pass the tenant as SETTINGS SQL_app_id = N -->
+    <custom_settings_prefixes>SQL_</custom_settings_prefixes>
+    <!-- Keep the single-node footprint modest -->
+    <mark_cache_size>536870912</mark_cache_size>
+</clickhouse>

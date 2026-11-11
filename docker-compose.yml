@@ -1,0 +1,112 @@
+# Single-machine stack: good for local development and a small production
+# deployment on one VM (e.g. Oracle Cloud Always Free, 4 OCPU / 24 GB ARM).
+#
+#   docker compose up -d --build
+#   open http://localhost:8081            (dashboard, read key: rk_demo)
+#   curl -X POST localhost:8080/e ...      (collector, write key: pk_demo)
+
+name: event-analytics
+
+services:
+  redpanda:
+    image: redpandadata/redpanda:v24.2.18
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container          # single node; use a 3-node cluster in production
+      - --smp=1
+      - --memory=1G
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+    ports:
+      - "19092:19092"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  topics:
+    image: redpandadata/redpanda:v24.2.18
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        R="rpk -X brokers=redpanda:9092"
+        $$R topic create events.raw -p 12 -r 1 -c retention.ms=259200000 -c compression.type=producer || true
+        $$R topic create events.dlq -p 3 -r 1 -c retention.ms=1209600000 || true
+        $$R topic list
+    restart: "no"
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8
+    depends_on:
+      topics:
+        condition: service_completed_successfully
+    environment:
+      CLICKHOUSE_DB: analytics
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: dev_password
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse/config.d/custom-settings.xml:/etc/clickhouse-server/config.d/custom-settings.xml:ro
+      - ./clickhouse/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --password dev_password -q 'SELECT 1 FROM analytics.events LIMIT 1' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    restart: unless-stopped
+
+  collector:
+    build: { context: ., dockerfile: deploy/Dockerfile, args: { CMD: collector } }
+    depends_on:
+      topics:
+        condition: service_completed_successfully
+    environment:
+      LISTEN_ADDR: ":8080"
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_TOPIC: events.raw
+      KAFKA_DLQ_TOPIC: events.dlq
+      SPOOL_DIR: /data/spool
+      # app_id|write_key|read_key|allowed_origins|events_per_sec|burst|retention_days
+      PROJECTS: "1|pk_demo|rk_demo|*|50000|150000|395"
+    ports:
+      - "8080:8080"
+    volumes:
+      - collector-spool:/data/spool
+    restart: unless-stopped
+
+  queryapi:
+    build: { context: ., dockerfile: deploy/Dockerfile, args: { CMD: queryapi } }
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      LISTEN_ADDR: ":8081"
+      CLICKHOUSE_ADDR: clickhouse:9000
+      CLICKHOUSE_USER: query_api
+      CLICKHOUSE_PASSWORD: query_api_dev_password
+      PROJECTS: "1|pk_demo|rk_demo|*"
+      COLLECTOR_PUBLIC_URL: http://localhost:8080
+      WEB_DIR: /app/web
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
+volumes:
+  redpanda-data:
+  clickhouse-data:
+  collector-spool:

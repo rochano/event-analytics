@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo shop (SDK test page)</title>
+<link rel="stylesheet" href="style.css">
+<script src="/sdk/analytics.js"></script>
+<script>
+  // The collector URL and write key come from the query API's /api/config in
+  // the dashboard; here they are passed in the query string for simplicity:
+  //   /demo.html?host=http://localhost:8080&key=pk_demo
+  (function () {
+    var q = new URLSearchParams(location.search);
+    pulse.init({ key: q.get("key") || "pk_demo", host: q.get("host") || "http://localhost:8080", flushIntervalMs: 2000 });
+  })();
+</script>
+</head>
+<body>
+<main class="wrap" style="padding-top:24px">
+  <div class="card">
+    <h2>Sneaker X — ฿2,490</h2>
+    <p class="muted">หน้าทดสอบ SDK: กดปุ่มด้านล่างแล้วเปิดแท็บ "เหตุการณ์สด" ใน dashboard</p>
+    <div class="row wrap-row">
+      <button class="primary" type="button" onclick="pulse.capture('product_viewed', {sku:'SNK-X', price:2490})">ดูสินค้า</button>
+      <button class="primary" type="button" onclick="pulse.capture('add_to_cart', {sku:'SNK-X'})">ใส่ตะกร้า</button>
+      <button class="primary" type="button" onclick="pulse.capture('checkout_started')">เช็กเอาต์</button>
+      <button class="primary" type="button" onclick="pulse.capture('purchase', {revenue:2490, currency:'THB'})">ชำระเงิน</button>
+      <button class="primary" type="button" onclick="pulse.identify('demo_user_1', {plan:'gold'})">ล็อกอิน (identify)</button>
+    </div>
+    <p class="muted" id="q"></p>
+  </div>
+</main>
+<script>
+  setInterval(function () { document.getElementById("q").textContent = "ค้างส่งในคิว: " + pulse._queue().length + " event"; }, 500);
+</script>
+</body>
+</html>
