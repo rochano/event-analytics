@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pulse Analytics</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap bar">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#1D4ED8"/><path d="M7 19l5-6 4 4 5-8" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><div class="name">Pulse Analytics</div><div class="sub" id="project">—</div></div>
+    </div>
+    <div class="controls">
+      <span class="live-pill"><span class="dot"></span>ออนไลน์ตอนนี้ <strong id="active">–</strong> คน</span>
+      <div class="seg" role="group" aria-label="ช่วงเวลา">
+        <button type="button" data-days="7">7 วัน</button>
+        <button type="button" data-days="30" class="on">30 วัน</button>
+        <button type="button" data-days="90">90 วัน</button>
+      </div>
+    </div>
+  </div>
+  <nav class="wrap tabs" aria-label="เมนูรายงาน">
+    <button type="button" data-tab="overview" class="on">ภาพรวม</button>
+    <button type="button" data-tab="funnel">Funnel</button>
+    <button type="button" data-tab="retention">Retention</button>
+    <button type="button" data-tab="live">เหตุการณ์สด</button>
+    <button type="button" data-tab="setup">ติดตั้ง</button>
+  </nav>
+</header>
+
+<main class="wrap">
+  <div id="login" class="card hidden">
+    <h2>ใส่ Read key ของโปรเจกต์</h2>
+    <form id="login-form" class="row">
+      <label for="key" class="sr">Read key</label>
+      <input id="key" name="key" placeholder="rk_demo" autocomplete="off" required>
+      <button type="submit" class="primary">เข้าสู่ระบบ</button>
+    </form>
+    <p class="muted" id="login-error"></p>
+  </div>
+
+  <section id="tab-overview" class="tab">
+    <div class="kpis" id="kpis"></div>
+    <div class="card">
+      <div class="card-head"><h2>ผู้เข้าชมไม่ซ้ำรายวัน</h2><span class="muted" id="trend-label"></span></div>
+      <div id="trend" class="chart"></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h2>หน้าที่มีคนดูมากที่สุด</h2><div id="top-pages" class="bars"></div></div>
+      <div class="card"><h2>มาจากช่องทางไหน (ผู้ใช้)</h2><div id="top-sources" class="bars orange"></div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h2>อุปกรณ์</h2><div id="devices"></div></div>
+      <div class="card"><h2>ประเทศ</h2><div id="countries" class="bars"></div></div>
+    </div>
+  </section>
+
+  <section id="tab-funnel" class="tab hidden">
+    <div class="card">
+      <h2>Funnel</h2>
+      <form id="funnel-form" class="row wrap-row">
+        <label for="funnel-steps">ขั้นตอน (ชื่อ event คั่นด้วย ,)</label>
+        <input id="funnel-steps" value="product_viewed,add_to_cart,checkout_started,purchase">
+        <label for="funnel-window">ภายใน</label>
+        <select id="funnel-window">
+          <option value="3600">1 ชั่วโมง</option>
+          <option value="86400" selected>1 วัน</option>
+          <option value="604800">7 วัน</option>
+        </select>
+        <button type="submit" class="primary">คำนวณ</button>
+      </form>
+      <p class="muted">event ที่มีในช่วงนี้: <span id="event-names"></span></p>
+      <div id="funnel"></div>
+    </div>
+  </section>
+
+  <section id="tab-retention" class="tab hidden">
+    <div class="card">
+      <h2>Retention รายสัปดาห์</h2>
+      <p class="muted">แต่ละแถวคือกลุ่มผู้ใช้ที่เริ่มใช้งานในสัปดาห์นั้น ตัวเลขคือ % ที่กลับมาในสัปดาห์ที่ N</p>
+      <div class="scroll"><div id="retention"></div></div>
+    </div>
+  </section>
+
+  <section id="tab-live" class="tab hidden">
+    <div class="card">
+      <div class="card-head"><h2>เหตุการณ์สด</h2><span class="muted">อัปเดตทุก 5 วินาที</span></div>
+      <div class="scroll"><table class="table" id="live"><thead><tr><th>เวลา</th><th>เหตุการณ์</th><th>ผู้ใช้</th><th>หน้า</th><th>ประเทศ</th><th>อุปกรณ์</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <section id="tab-setup" class="tab hidden">
+    <div class="card">
+      <h2>ติดตั้งบนเว็บไซต์</h2>
+      <p>วางโค้ดนี้ก่อน <code>&lt;/head&gt;</code></p>
+      <pre id="snippet"></pre>
+      <h2>ส่ง event จากเกมหรือ backend</h2>
+      <pre id="curl"></pre>
+      <h2>ทดลองส่ง event</h2>
+      <div class="row wrap-row">
+        <button type="button" class="primary" data-test="$pageview">ส่ง $pageview</button>
+        <button type="button" class="primary" data-test="add_to_cart">ส่ง add_to_cart</button>
+        <button type="button" class="primary" data-test="level_complete">ส่ง level_complete</button>
+      </div>
+      <p class="muted" id="test-result">ดูผลได้ที่แท็บ "เหตุการณ์สด" ภายในไม่กี่วินาที</p>
+    </div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
