@@ -14,6 +14,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/rochano/event-analytics/internal/collector"
@@ -41,7 +42,8 @@ func main() {
 	start := now.AddDate(0, 0, -*days)
 
 	pages := []string{"/", "/", "/", "/products/sneaker-x", "/products/runner-2", "/sale/11-11", "/blog/size-guide", "/about"}
-	refs := []string{"", "", "https://www.google.com/", "https://www.google.com/", "https://www.facebook.com/", "https://line.me/", "https://www.tiktok.com/"}
+	refs := []string{"", "", "https://www.google.com/", "https://www.google.com/", "https://www.google.co.th/", "https://www.bing.com/",
+		"https://www.facebook.com/", "https://line.me/", "https://www.tiktok.com/", "https://chatgpt.com/", "https://www.perplexity.ai/", "https://pantip.com/topic/1"}
 	uas := []string{
 		"Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1",
 		"Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36",
@@ -71,7 +73,6 @@ func main() {
 		id := fmt.Sprintf("u_%06d", u)
 		ua := uas[rng.Intn(len(uas))]
 		country := countries[rng.Intn(len(countries))]
-		ref := refs[rng.Intn(len(refs))]
 		loyal := rng.Float64() < 0.25
 
 		visit := first
@@ -79,16 +80,38 @@ func main() {
 			sess := fmt.Sprintf("s_%s_%d", id, v)
 			t := visit
 			n := 1 + rng.Intn(6)
+			// Search and AI visits grow over the period, so the SEO tab has a trend.
+			ref := refs[rng.Intn(len(refs))]
+			if growth := float64(visit.Sub(start)) / float64(now.Sub(start)); rng.Float64() > growth && strings.Contains(ref, "chatgpt") {
+				ref = ""
+			}
+			mobile := strings.Contains(ua, "Mobile")
 			for i := 0; i < n && t.Before(now); i++ {
 				page := pages[rng.Intn(len(pages))]
 				props := map[string]json.RawMessage{
 					"$current_url": raw("https://shop.example.com" + page),
 					"$lib":         raw("web"),
 				}
-				if i == 0 && v == 0 {
+				if i == 0 {
 					props["$referrer"] = raw(ref)
 				}
 				produce(collector.InEvent{Event: "$pageview", DistinctID: id, SessionID: sess, Properties: props}, t, ua, country)
+				// Core Web Vitals for the page view (mobile is slower, the sale page heaviest).
+				lcp := 1200 + rng.ExpFloat64()*900
+				if mobile {
+					lcp *= 1.6
+				}
+				if page == "/sale/11-11" {
+					lcp *= 1.5
+				}
+				produce(collector.InEvent{Event: "$web_vitals", DistinctID: id, SessionID: sess, Properties: map[string]json.RawMessage{
+					"$current_url": raw("https://shop.example.com" + page),
+					"lcp":          raw(math.Round(lcp)),
+					"fcp":          raw(math.Round(lcp * 0.6)),
+					"inp":          raw(math.Round(60 + rng.ExpFloat64()*90)),
+					"cls":          raw(math.Round(rng.ExpFloat64()*0.06*1000) / 1000),
+					"ttfb":         raw(math.Round(150 + rng.ExpFloat64()*250)),
+				}}, t.Add(5*time.Second), ua, country)
 				t = t.Add(time.Duration(10+rng.Intn(120)) * time.Second)
 			}
 			// Purchase funnel.

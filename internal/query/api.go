@@ -26,6 +26,8 @@ type Backend interface {
 	Live(ctx context.Context, appID uint32, limit int) ([]LiveEvent, error)
 	ActiveNow(ctx context.Context, appID uint32) (uint64, error)
 	EventNames(ctx context.Context, appID uint32, r Range) ([]Row, error)
+	Visits(ctx context.Context, appID uint32, r Range) ([]VisitRow, error)
+	Vitals(ctx context.Context, appID uint32, r Range) (VitalsReport, error)
 }
 
 // API serves /api/* and the static dashboard.
@@ -58,6 +60,9 @@ func (a *API) Handler(webDir string) http.Handler {
 	mux.HandleFunc("/api/funnel", a.auth(a.cached(2*time.Minute, a.funnel)))
 	mux.HandleFunc("/api/retention", a.auth(a.cached(10*time.Minute, a.retention)))
 	mux.HandleFunc("/api/live", a.auth(a.cached(3*time.Second, a.live)))
+	mux.HandleFunc("/api/seo", a.auth(a.cached(2*time.Minute, a.seo)))
+	mux.HandleFunc("/api/vitals", a.auth(a.cached(5*time.Minute, a.vitals)))
+	mux.HandleFunc("/api/insights", a.auth(a.cached(5*time.Minute, a.insights)))
 	if webDir != "" {
 		mux.Handle("/", http.FileServer(http.Dir(webDir)))
 	}
@@ -259,6 +264,42 @@ func (a *API) live(r *http.Request, p config.Project) (any, error) {
 		return nil, err
 	}
 	return map[string]any{"events": evs, "active_now": active}, nil
+}
+
+func (a *API) seo(r *http.Request, p config.Project) (any, error) {
+	rg, err := a.days(r)
+	if err != nil {
+		return nil, err
+	}
+	cur, err := a.backend.Visits(r.Context(), p.AppID, rg)
+	if err != nil {
+		return nil, err
+	}
+	prev, err := a.backend.Visits(r.Context(), p.AppID, rg.Previous())
+	if err != nil {
+		return nil, err
+	}
+	return BuildSEO(cur, prev, rg, a.tz), nil
+}
+
+func (a *API) vitals(r *http.Request, p config.Project) (any, error) {
+	rg, err := a.days(r)
+	if err != nil {
+		return nil, err
+	}
+	return a.backend.Vitals(r.Context(), p.AppID, rg)
+}
+
+func (a *API) insights(r *http.Request, p config.Project) (any, error) {
+	rg, err := a.days(r)
+	if err != nil {
+		return nil, err
+	}
+	n := 30
+	if s := r.URL.Query().Get("days"); s != "" {
+		n, _ = strconv.Atoi(s)
+	}
+	return insightsFor(r.Context(), a.backend, p.AppID, rg, n, a.now(), a.tz)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

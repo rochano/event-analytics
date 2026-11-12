@@ -116,6 +116,156 @@
       '<div class="axis">' + ticks.map(function (t) { return "<span>" + esc(label(t)) + "</span>"; }).join("") + "</div>";
   }
 
+
+  // ---- Insights -------------------------------------------------------------
+
+  var CH = {
+    "Organic Search": { th: "Search (Google, Bing)", color: "#047857" },
+    "AI": { th: "AI (ChatGPT, Perplexity ฯลฯ)", color: "#7C3AED" },
+    "Social": { th: "โซเชียล", color: "#EA580C" },
+    "Referral": { th: "เว็บอื่นลิงก์มา", color: "#0891B2" },
+    "Paid": { th: "โฆษณา", color: "#DB2777" },
+    "Email": { th: "อีเมล", color: "#CA8A04" },
+    "Direct": { th: "เข้าตรง", color: "#6B7280" }
+  };
+  var DEVICE = { Mobile: "มือถือ", Desktop: "คอมพิวเตอร์", Tablet: "แท็บเล็ต", Other: "อื่นๆ", "": "ไม่ทราบ" };
+  var abs = function (n) { return Math.abs(n).toFixed(0); };
+  var page = function (p) { return '<span class="mono">' + esc(p) + "</span>"; };
+
+  function insightText(i) {
+    var p = i.params || {};
+    switch (i.kind) {
+      case "no_data": return "ยังไม่มีข้อมูลเข้ามาใน " + p.days + " วันนี้ เช็กว่าใส่โค้ด SDK ในเว็บหรือเกมแล้ว และ key กับ host ถูก (ลองกดส่ง event ทดสอบในแท็บ ติดตั้ง แล้วดูแท็บ เหตุการณ์สด)";
+      case "low_traffic": return "ยังมีผู้เข้าชมน้อย (" + fmt(p.visitors) + " คนใน " + p.days + " วัน) เริ่มจาก: ส่ง sitemap ใน Google Search Console และ Bing Webmaster Tools, โพสต์ลิงก์ใน itch.io, Reddit, Pantip และกลุ่ม Facebook, ใส่ <span class=\"mono\">?utm_source=</span> ในลิงก์ที่แชร์ จะได้รู้ว่าช่องทางไหนได้ผล";
+      case "low_return": return "คนส่วนใหญ่เข้ามาครั้งเดียว: กลับมาในสัปดาห์ถัดไปแค่ <strong>" + p.pct + "%</strong> ลองเพิ่มเหตุผลให้กลับมา เช่น ภารกิจหรือโจทย์รายวัน, รางวัลล็อกอินต่อเนื่อง, อันดับรายสัปดาห์, ปุ่มเพิ่มไปหน้าจอโฮม และช่องทางแจ้งข่าว (LINE OA/เพจ) เวลามีด่านใหม่";
+      case "high_return": return "ผู้ใช้กลับมาเล่นซ้ำดี: <strong>" + p.pct + "%</strong> กลับมาในสัปดาห์ถัดไป";
+      case "traffic_up": return "ผู้เข้าชม " + p.days + " วันนี้เพิ่มขึ้น <strong>" + abs(p.pct) + "%</strong> เทียบช่วงก่อน (" + fmt(p.visitors) + " คน)";
+      case "traffic_down": return "ผู้เข้าชม " + p.days + " วันนี้ลดลง <strong>" + abs(p.pct) + "%</strong> เทียบช่วงก่อน (" + fmt(p.visitors) + " คน) ดูแท็บ SEO ว่าช่องทางไหนลด";
+      case "traffic_new": return "เริ่มมีผู้เข้าชม " + fmt(p.visitors) + " คนใน " + p.days + " วันนี้";
+      case "day_drop": return "เมื่อวาน (" + esc(p.day) + ") มีผู้ใช้ " + fmt(p.users) + " คน <strong>ต่ำกว่าปกติ " + abs(p.pct) + "%</strong> (เฉลี่ย 7 วัน " + fmt(p.avg) + ") ลองเช็กว่าเว็บล่มหรือโค้ด tracking หายไหม";
+      case "day_spike": return "เมื่อวาน (" + esc(p.day) + ") มีผู้ใช้ " + fmt(p.users) + " คน <strong>สูงกว่าปกติ " + abs(p.pct) + "%</strong> ดูแท็บ SEO ว่ามาจากไหน";
+      case "ai_new": return "เริ่มมีคนมาจาก <strong>AI</strong> (ChatGPT, Perplexity, Gemini ฯลฯ) แล้ว " + fmt(p.sessions) + " ครั้ง";
+      case "channel_up": return (CH[p.channel] || { th: p.channel }).th + " <strong>เพิ่มขึ้น " + abs(p.pct) + "%</strong> (" + fmt(p.sessions) + " ครั้ง)";
+      case "channel_down": return (CH[p.channel] || { th: p.channel }).th + " <strong>ลดลง " + abs(p.pct) + "%</strong> (" + fmt(p.sessions) + " ครั้ง)" + (p.channel === "Organic Search" ? " ลองเช็กอันดับใน Google Search Console" : "");
+      case "search_low": return "คนมาจาก Google/Bing แค่ <strong>" + p.share + "%</strong> ของการเข้าชม แนะนำส่ง sitemap ใน Google Search Console และ Bing Webmaster Tools (ดูเช็กลิสต์ในแท็บ SEO)";
+      case "top_search_page": return "หน้า " + page(p.page) + " ดึงคนจาก Search และ AI ได้มากที่สุด (" + fmt(p.sessions) + " ครั้ง) ทำหน้าแบบนี้เพิ่มได้";
+      case "high_bounce": return "หน้า " + page(p.page) + " คนเข้าแล้วออกเลย <strong>" + p.rate + "%</strong> (" + fmt(p.sessions) + " ครั้ง) ลองทำปุ่มหรือลิงก์ชวนไปต่อให้เห็นชัดขึ้น";
+      case "vital_slow":
+        var where = " บน" + (DEVICE[p.device] || esc(p.device)) + (p.page ? " ช้าสุดที่ " + page(p.page) : "");
+        if (p.metric === "lcp") return "หน้าโหลดช้า" + where + " (LCP <strong>" + (p.p75 / 1000).toFixed(1) + " วินาที</strong> ควรไม่เกิน 2.5) ลองลดขนาดรูปและไฟล์ที่โหลดตอนเปิด";
+        if (p.metric === "inp") return "กดแล้วตอบสนองช้า" + where + " (INP <strong>" + fmt(p.p75) + " ms</strong> ควรไม่เกิน 200)";
+        return "หน้าเลื่อน/กระตุกตอนโหลด" + where + " (CLS <strong>" + p.p75.toFixed(2) + "</strong> ควรไม่เกิน 0.1) ใส่ width และ height ให้รูป";
+      case "vitals_missing": return "ยังไม่มีข้อมูลความเร็วหน้าเว็บ ใช้ SDK เวอร์ชันล่าสุด (โหลดจาก /sdk/analytics.js) ระบบจะเก็บให้อัตโนมัติ";
+      case "event_down": return "event <span class=\"mono\">" + esc(p.event) + "</span> <strong>ลดลง " + abs(p.pct) + "%</strong> (" + fmt(p.previous) + " → " + fmt(p.count) + ") ถ้าเป็นเกม อาจมีบั๊กหรือด่านยากไป";
+      case "event_up": return "event <span class=\"mono\">" + esc(p.event) + "</span> <strong>เพิ่มขึ้น " + abs(p.pct) + "%</strong> (" + fmt(p.previous) + " → " + fmt(p.count) + ")";
+    }
+    return esc(i.kind);
+  }
+
+  function loadInsights() {
+    api("insights?days=" + state.days).then(function (list) {
+      $("#insights").innerHTML = (list || []).map(function (i) {
+        return '<li class="' + esc(i.level) + '"><i aria-hidden="true"></i><span>' + insightText(i) + "</span></li>";
+      }).join("") || '<li class="info"><i aria-hidden="true"></i><span>ยังไม่มีอะไรผิดปกติ ระบบจะเตือนเมื่อมีข้อมูลพอเปรียบเทียบ</span></li>';
+    }).catch(function () { $("#insights").innerHTML = '<li class="info"><i></i><span>โหลด insight ไม่สำเร็จ</span></li>'; });
+  }
+
+  // ---- SEO ------------------------------------------------------------------
+
+  function chg(cur, prev) {
+    if (!prev) return cur ? '<span class="delta good">ใหม่</span>' : '<span class="muted">–</span>';
+    var pct = (cur - prev) / prev * 100;
+    return '<span class="delta ' + (pct >= 0 ? "good" : "bad") + '">' + (pct >= 0 ? "▲ " : "▼ ") + Math.abs(pct).toFixed(0) + "%</span>";
+  }
+
+  function multiLine(series, labels) {
+    var n = labels.length;
+    if (!n) return '<p class="muted">ยังไม่มีข้อมูล</p>';
+    var max = 1;
+    series.forEach(function (s) { s.values.forEach(function (v) { if (v > max) max = v; }); });
+    max *= 1.1;
+    var paths = series.map(function (s) {
+      var d = "M" + s.values.map(function (v, i) {
+        return (n === 1 ? 300 : i / (n - 1) * 600).toFixed(1) + " " + (200 - v / max * 190).toFixed(1);
+      }).join(" L");
+      return '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>';
+    }).join("");
+    var months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+    var lab = function (t) { var p = t.split("-"); return Number(p[2]) + " " + months[Number(p[1]) - 1]; };
+    var ticks = [0, 0.25, 0.5, 0.75, 1].map(function (f) { return labels[Math.round(f * (n - 1))]; });
+    return '<svg viewBox="0 0 600 200" preserveAspectRatio="none" role="img" aria-label="กราฟการเข้าชมแยกตามช่องทาง">' +
+      [50, 100, 150].map(function (y) { return '<line x1="0" x2="600" y1="' + y + '" y2="' + y + '" stroke="#EEF0F3" vector-effect="non-scaling-stroke"/>'; }).join("") +
+      paths + '</svg><div class="axis">' + ticks.map(function (t) { return "<span>" + esc(lab(t)) + "</span>"; }).join("") + "</div>";
+  }
+
+  function loadSEO() {
+    var d = state.days;
+    api("seo?days=" + d).then(function (r) {
+      var by = {};
+      r.channels.forEach(function (c) { by[c.channel] = c; });
+      var org = by["Organic Search"], ai = by["AI"];
+      var share = r.sessions ? (org.sessions + ai.sessions) / r.sessions * 100 : 0;
+      $("#seo-kpis").innerHTML = [
+        ["การเข้าชมทั้งหมด", fmt(r.sessions), chg(r.sessions, r.previous)],
+        ["จาก Search (Google, Bing)", fmt(org.sessions), chg(org.sessions, org.previous)],
+        ["จาก AI", fmt(ai.sessions), chg(ai.sessions, ai.previous)],
+        ["สัดส่วน Search + AI", share.toFixed(1) + "%", '<span class="muted">ของการเข้าชมทั้งหมด</span>']
+      ].map(function (k) {
+        return '<div class="kpi"><span class="label">' + k[0] + '</span><span class="value">' + k[1] + "</span>" + k[2] + "</div>";
+      }).join("");
+
+      var shown = r.channels.filter(function (c) { return c.sessions > 0 || c.channel === "Organic Search" || c.channel === "AI"; });
+      var series = shown.map(function (c) {
+        return { color: CH[c.channel].color, values: r.trend.map(function (p) { return p.channels[c.channel] || 0; }) };
+      });
+      $("#seo-trend").innerHTML = multiLine(series, r.trend.map(function (p) { return p.t; }));
+      $("#seo-legend").innerHTML = shown.map(function (c) {
+        return '<span><i style="background:' + CH[c.channel].color + '"></i>' + esc(CH[c.channel].th) + "</span>";
+      }).join("");
+
+      $("#seo-channels").innerHTML = '<thead><tr><th>ช่องทาง</th><th class="num">ครั้ง</th><th class="num">เทียบก่อน</th><th class="num">ออกทันที</th></tr></thead><tbody>' +
+        r.channels.map(function (c) {
+          return '<tr><td><span class="chip" style="background:' + CH[c.channel].color + '"></span>' + esc(CH[c.channel].th) + '</td><td class="num">' + fmt(c.sessions) +
+            '</td><td class="num">' + chg(c.sessions, c.previous) + '</td><td class="num">' + (c.sessions ? (c.bounce_rate * 100).toFixed(0) + "%" : "–") + "</td></tr>";
+        }).join("") + "</tbody>";
+
+      var engines = r.sources.filter(function (s) { return s.channel === "Organic Search" || s.channel === "AI"; })
+        .map(function (s) { return { value: s.source + (s.channel === "AI" ? " (AI)" : ""), events: s.sessions }; });
+      $("#seo-sources").innerHTML = engines.length ? bars(engines, "events", false) :
+        '<p class="muted">ยังไม่มีคนมาจาก Search หรือ AI ในช่วงนี้ ดูเช็กลิสต์ด้านล่าง</p>';
+
+      $("#seo-landing").innerHTML = '<thead><tr><th>หน้า</th><th class="num">เข้าชม</th><th class="num">จาก Search</th><th class="num">จาก AI</th><th class="num">ออกทันที</th><th class="num">เทียบก่อน</th></tr></thead><tbody>' +
+        (r.landing.map(function (l) {
+          return '<tr><td class="mono">' + esc(l.page) + '</td><td class="num">' + fmt(l.sessions) + '</td><td class="num">' + fmt(l.search) +
+            '</td><td class="num">' + fmt(l.ai) + '</td><td class="num">' + (l.bounce_rate * 100).toFixed(0) + '%</td><td class="num">' + chg(l.sessions, l.previous) + "</td></tr>";
+        }).join("") || '<tr><td colspan="6" class="muted">ยังไม่มีข้อมูล</td></tr>') + "</tbody>";
+    }).catch(noop);
+
+    api("vitals?days=" + d).then(function (v) {
+      var names = { lcp: ["LCP", "โหลดเนื้อหาหลักเสร็จ"], inp: ["INP", "ตอบสนองเมื่อกด"], cls: ["CLS", "หน้าไม่กระตุก"], fcp: ["FCP", "เริ่มเห็นหน้าเว็บ"], ttfb: ["TTFB", "เซิร์ฟเวอร์ตอบกลับ"] };
+      var rateTH = { good: "ดี", "needs-improvement": "ควรปรับ", poor: "แย่" };
+      var val = function (m, x) { return m === "cls" ? x.toFixed(2) : (x >= 1000 ? (x / 1000).toFixed(2) + " s" : Math.round(x) + " ms"); };
+      $("#vitals").innerHTML = (v.overall || []).map(function (x) {
+        return '<div class="vital"><span class="label">' + names[x.metric][0] + " · " + names[x.metric][1] + '</span><span class="value">' + val(x.metric, x.p75) +
+          '</span><span><span class="rate ' + x.rating + '">' + rateTH[x.rating] + '</span> <span class="muted">' + fmt(x.samples) + " ครั้ง</span></span></div>";
+      }).join("") || '<p class="muted">ยังไม่มีข้อมูล ระบบจะเก็บอัตโนมัติเมื่อหน้าเว็บใช้ SDK เวอร์ชันล่าสุด</p>';
+      var table = function (groups, label) {
+        if (!groups || !groups.length) return '<tbody><tr><td class="muted">ยังไม่มีข้อมูล</td></tr></tbody>';
+        var cell = function (g, m) {
+          var x = (g.vitals || []).filter(function (y) { return y.metric === m; })[0];
+          return x ? '<span class="rate ' + x.rating + '">' + val(m, x.p75) + "</span>" : "–";
+        };
+        return '<thead><tr><th>' + label + '</th><th class="num">LCP</th><th class="num">INP</th><th class="num">CLS</th></tr></thead><tbody>' +
+          groups.map(function (g) {
+            var k = label === "อุปกรณ์" ? (DEVICE[g.key] || g.key) : g.key;
+            return "<tr><td" + (label === "หน้า" ? ' class="mono"' : "") + ">" + esc(k) + '</td><td class="num">' + cell(g, "lcp") + '</td><td class="num">' + cell(g, "inp") + '</td><td class="num">' + cell(g, "cls") + "</td></tr>";
+          }).join("") + "</tbody>";
+      };
+      $("#vitals-device").innerHTML = table(v.by_device, "อุปกรณ์");
+      $("#vitals-page").innerHTML = table(v.by_page, "หน้า");
+    }).catch(noop);
+  }
+
   // ---- Funnel ---------------------------------------------------------------
 
   function loadFunnel() {
@@ -215,7 +365,8 @@
     $$(".seg button").forEach(function (b) { b.classList.toggle("on", Number(b.dataset.days) === state.days); });
     $$(".tab").forEach(function (t) { t.classList.toggle("hidden", t.id !== "tab-" + state.tab); });
     clearInterval(state.liveTimer);
-    if (state.tab === "overview") loadOverview();
+    if (state.tab === "overview") { loadOverview(); loadInsights(); }
+    if (state.tab === "seo") loadSEO();
     if (state.tab === "funnel") loadFunnel();
     if (state.tab === "retention") loadRetention();
     if (state.tab === "live") { loadLive(); state.liveTimer = setInterval(loadLive, 5000); }
