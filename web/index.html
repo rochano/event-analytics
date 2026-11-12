@@ -24,6 +24,7 @@
   </div>
   <nav class="wrap tabs" aria-label="เมนูรายงาน">
     <button type="button" data-tab="overview" class="on">ภาพรวม</button>
+    <button type="button" data-tab="seo">SEO</button>
     <button type="button" data-tab="funnel">Funnel</button>
     <button type="button" data-tab="retention">Retention</button>
     <button type="button" data-tab="live">เหตุการณ์สด</button>
@@ -43,6 +44,10 @@
   </div>
 
   <section id="tab-overview" class="tab">
+    <div class="card">
+      <div class="card-head"><h2>สิ่งที่ควรรู้ (Insight อัตโนมัติ)</h2><span class="muted">เทียบกับช่วงก่อนหน้าที่ยาวเท่ากัน</span></div>
+      <ul id="insights" class="insights"></ul>
+    </div>
     <div class="kpis" id="kpis"></div>
     <div class="card">
       <div class="card-head"><h2>ผู้เข้าชมไม่ซ้ำรายวัน</h2><span class="muted" id="trend-label"></span></div>
@@ -55,6 +60,42 @@
     <div class="grid2">
       <div class="card"><h2>อุปกรณ์</h2><div id="devices"></div></div>
       <div class="card"><h2>ประเทศ</h2><div id="countries" class="bars"></div></div>
+    </div>
+  </section>
+
+  <section id="tab-seo" class="tab hidden">
+    <div class="kpis" id="seo-kpis"></div>
+    <div class="card">
+      <div class="card-head"><h2>การเข้าชมแยกตามช่องทาง (รายวัน)</h2><span class="muted">นับจากหน้าแรกที่เข้ามาในแต่ละ session</span></div>
+      <div id="seo-trend" class="chart"></div>
+      <div id="seo-legend" class="legend"></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h2>ช่องทาง</h2><div class="scroll"><table class="table compact" id="seo-channels"></table></div></div>
+      <div class="card"><h2>Search engine และ AI ที่ส่งคนมา</h2><div id="seo-sources" class="bars"></div></div>
+    </div>
+    <div class="card">
+      <h2>หน้าแรกที่คนเข้ามา (Landing page)</h2>
+      <div class="scroll"><table class="table" id="seo-landing"></table></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>ความเร็วหน้าเว็บ (Core Web Vitals)</h2><span class="muted">ค่า p75 จากผู้ใช้จริง แบบที่ Google ใช้จัดอันดับ</span></div>
+      <div id="vitals" class="vitals"></div>
+      <div class="grid2 inner">
+        <div><h3>แยกตามอุปกรณ์</h3><div class="scroll"><table class="table compact" id="vitals-device"></table></div></div>
+        <div><h3>หน้าที่มีคนเข้าเยอะ</h3><div class="scroll"><table class="table compact" id="vitals-page"></table></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>เช็กลิสต์ให้ติด Google และ AI</h2>
+      <ul class="checklist">
+        <li>ยืนยันเว็บใน <strong>Google Search Console</strong> แล้วส่ง <code>sitemap.xml</code></li>
+        <li>เพิ่มเว็บใน <strong>Bing Webmaster Tools</strong> (ChatGPT Search และ Copilot ใช้ข้อมูลจาก Bing) นำเข้าจาก Search Console ได้ในคลิกเดียว</li>
+        <li>มี <code>robots.txt</code> ที่อนุญาต GPTBot, OAI-SearchBot, ClaudeBot, PerplexityBot และมี <code>llms.txt</code> สรุปเว็บให้ AI อ่าน</li>
+        <li>ทุกหน้ามี title, description และข้อความจริงให้อ่าน (ไม่ใช่แค่เกมใน canvas) พร้อม FAQ ที่ตอบคำถามที่คนค้นจริง</li>
+        <li>ลงลิงก์เกมในที่ที่ AI ชอบอ้างอิง เช่น itch.io, Reddit, Pantip, YouTube และกลุ่ม Facebook</li>
+        <li>ดูแท็บนี้ทุกสัปดาห์: Organic Search และ AI ควรค่อย ๆ เพิ่มขึ้น และ LCP บนมือถือควรต่ำกว่า 2.5 วินาที</li>
+      </ul>
     </div>
   </section>
 

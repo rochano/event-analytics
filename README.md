@@ -105,6 +105,12 @@ go run ./cmd/collector &           # uses localhost:19092
 go run ./cmd/queryapi              # uses localhost:9000, serves ./web
 ```
 
+## SEO tab and automatic insights
+
+- **SEO tab**: visits by channel (Search, AI, Social, Referral, Direct) per day, the search engines and AI assistants that send people, landing pages with search/AI visits and bounce rate, and Core Web Vitals (p75 LCP, INP, CLS, FCP, TTFB) by device and page.
+- **Insights** (top of the overview): rule-based findings such as traffic drops or spikes, search or AI traffic rising or falling, pages people leave at once, slow pages on mobile, and game events that fell sharply. Thresholds ignore small numbers.
+- API: `/api/seo`, `/api/vitals`, `/api/insights` (all take `days`).
+
 ## Roadmap (from the design doc)
 
 - Enricher service: identity merging for `$identify`, PII scanner, GeoIP, schema checks
@@ -112,3 +118,4 @@ go run ./cmd/queryapi              # uses localhost:9000, serves ./web
 - Redis-backed shared cache and rate limits for multi-instance deployments
 - Clustered ClickHouse (replicas, S3 tiering) and 3-node Redpanda via Terraform/Helm
 - Mobile and Unity SDKs
+- Google Search Console import (keywords, impressions, average position) and AI-written weekly summaries

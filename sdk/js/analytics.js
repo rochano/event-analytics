@@ -149,7 +149,7 @@
   });
 
   function baseProps() {
-    var p = { $lib: "web", $lib_version: "0.1.0" };
+    var p = { $lib: "web", $lib_version: "0.2.0" };
     if (root.location) {
       p.$current_url = location.href;
       p.$pathname = location.pathname;
@@ -163,6 +163,49 @@
     return p;
   }
 
+  // Core Web Vitals of this page load, reported once when the page is hidden
+  // as a "$web_vitals" event (milliseconds; CLS is unitless). Uses the same
+  // definitions as Google's web-vitals library, simplified: INP is the
+  // slowest interaction seen.
+  function watchVitals() {
+    if (!root.PerformanceObserver || !root.performance) return function () {};
+    var v = {};
+    var sent = false;
+    var loadUrl = root.location ? location.href : "";
+    var loadPath = root.location ? location.pathname : "";
+    function observe(type, onEntry, extra) {
+      try {
+        var o = new PerformanceObserver(function (list) { list.getEntries().forEach(onEntry); });
+        o.observe(assign({ type: type, buffered: true }, extra));
+      } catch (e) {}
+    }
+    observe("largest-contentful-paint", function (e) { v.lcp = Math.round(e.startTime); });
+    observe("paint", function (e) { if (e.name === "first-contentful-paint") v.fcp = Math.round(e.startTime); });
+    var cls = 0, win = 0, first = 0, last = 0;
+    var types = PerformanceObserver.supportedEntryTypes || [];
+    if (types.indexOf("layout-shift") >= 0) v.cls = 0; // no shift at all is a perfect score
+    observe("layout-shift", function (e) {
+      if (e.hadRecentInput) return;
+      if (win && e.startTime - last < 1000 && e.startTime - first < 5000) win += e.value;
+      else { win = e.value; first = e.startTime; }
+      last = e.startTime;
+      if (win > cls) cls = win;
+      v.cls = Math.round(cls * 1000) / 1000;
+    });
+    function interaction(e) { if ((e.interactionId || e.entryType === "first-input") && e.duration > (v.inp || -1)) v.inp = Math.round(e.duration); }
+    observe("first-input", interaction);
+    observe("event", interaction, { durationThreshold: 16 });
+    try {
+      var nav = performance.getEntriesByType("navigation")[0];
+      if (nav && nav.responseStart > 0) v.ttfb = Math.round(nav.responseStart);
+    } catch (e) {}
+    return function report() {
+      if (sent || v.lcp === undefined && v.fcp === undefined) return;
+      sent = true;
+      api.capture("$web_vitals", assign({ $current_url: loadUrl, $pathname: loadPath }, v));
+    };
+  }
+
   function assign(target, src) {
     if (src) for (var k in src) if (Object.prototype.hasOwnProperty.call(src, k)) target[k] = src[k];
     return target;
@@ -170,12 +213,13 @@
 
   var api = {
     init: safe(function (options) {
-      cfg = assign({ host: "", key: "", batchSize: 20, flushIntervalMs: 5000, autoPageview: true, debug: false }, options);
+      cfg = assign({ host: "", key: "", batchSize: 20, flushIntervalMs: 5000, autoPageview: true, webVitals: true, debug: false }, options);
       if (!cfg.key || !cfg.host) throw new Error("pulse.init needs key and host");
       try { queue = JSON.parse(load(STORAGE_QUEUE) || "[]"); } catch (e) { queue = []; }
       if (root.document) {
-        document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") flushOnHide(); });
-        root.addEventListener("pagehide", flushOnHide);
+        var reportVitals = cfg.webVitals ? watchVitals() : function () {};
+        document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") { reportVitals(); flushOnHide(); } });
+        root.addEventListener("pagehide", function () { reportVitals(); flushOnHide(); });
         root.addEventListener("online", function () { retryAt = 0; flush(); });
       }
       if (cfg.autoPageview) {

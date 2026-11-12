@@ -42,6 +42,13 @@ func (f *fakeBackend) Live(context.Context, uint32, int) ([]LiveEvent, error)   
 func (f *fakeBackend) ActiveNow(context.Context, uint32) (uint64, error)        { return 2, nil }
 func (f *fakeBackend) EventNames(context.Context, uint32, Range) ([]Row, error) { return nil, nil }
 
+func (f *fakeBackend) Visits(context.Context, uint32, Range) ([]VisitRow, error) {
+	return []VisitRow{{Day: "2026-11-10", Landing: "/", Referrer: "google.com", Sessions: 4, Bounces: 1}}, nil
+}
+func (f *fakeBackend) Vitals(context.Context, uint32, Range) (VitalsReport, error) {
+	return VitalsReport{}, nil
+}
+
 func newTestAPI() (*API, *fakeBackend) {
 	fb := &fakeBackend{}
 	api := NewAPI(fb, []config.Project{{AppID: 1, WriteKey: "pk1", ReadKey: "rk1"}, {AppID: 2, WriteKey: "pk2", ReadKey: "rk2"}},
