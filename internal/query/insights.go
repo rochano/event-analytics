@@ -28,6 +28,7 @@ type InsightInput struct {
 	EventsCur  []Row
 	EventsPrev []Row
 	Daily      []Point // complete days, oldest first; the last one is yesterday
+	Cohorts    []Cohort
 }
 
 func pct(cur, prev uint64) float64 {
@@ -43,6 +44,34 @@ func BuildInsights(in InsightInput) []Insight {
 	var out []Insight
 	add := func(kind, level string, p map[string]any) {
 		out = append(out, Insight{Kind: kind, Level: level, Params: p})
+	}
+
+	// 0. Little or no traffic: say so and point at what to do first.
+	switch {
+	case in.Cur.Events == 0:
+		add("no_data", "warn", map[string]any{"days": in.Days})
+	case in.Cur.Visitors < 20:
+		add("low_traffic", "info", map[string]any{"visitors": in.Cur.Visitors, "days": in.Days})
+	}
+
+	// 0b. Do people come back? Share of each weekly cohort seen again the
+	// following week (only cohorts whose next week is complete).
+	var size, back uint64
+	for _, c := range in.Cohorts {
+		if len(c.Users) >= 2 {
+			size += c.Size
+			back += c.Users[1]
+		}
+	}
+	if size >= 20 {
+		rate := float64(back) / float64(size)
+		p := map[string]any{"pct": math.Round(rate*1000) / 10, "users": size}
+		switch {
+		case rate < 0.15:
+			add("low_return", "warn", p)
+		case rate >= 0.35:
+			add("high_return", "good", p)
+		}
 	}
 
 	// 1. Visitors versus the previous period.
@@ -240,6 +269,9 @@ func insightsFor(ctx context.Context, b Backend, appID uint32, rg Range, days in
 	}
 	if len(daily) > 0 {
 		in.Daily = daily[:len(daily)-1]
+	}
+	if in.Cohorts, err = b.Retention(ctx, appID, now, 5); err != nil {
+		return nil, err
 	}
 	return BuildInsights(in), nil
 }

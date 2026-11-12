@@ -90,7 +90,7 @@ func TestBuildInsights(t *testing.T) {
 	daily[7] = Point{T: "2026-11-11", Users: 30}
 	in := InsightInput{
 		Days: 7,
-		Cur:  KPIs{Visitors: 130, Pageviews: 400},
+		Cur:  KPIs{Visitors: 130, Pageviews: 400, Events: 900},
 		Prev: KPIs{Visitors: 100},
 		SEO: SEOReport{Sessions: 200, Channels: []ChannelStat{
 			{Channel: ChannelOrganic, Sessions: 5, Previous: 20},
@@ -122,9 +122,25 @@ func TestBuildInsights(t *testing.T) {
 	if got["traffic_up"].Params["pct"] != 30.0 {
 		t.Errorf("pct %+v", got["traffic_up"].Params)
 	}
-	// Small numbers stay quiet.
-	if out := BuildInsights(InsightInput{Cur: KPIs{Visitors: 3}, Prev: KPIs{Visitors: 1}}); len(out) != 0 {
-		t.Errorf("noise: %+v", out)
+	// Small numbers produce only the low-traffic tip, nothing else.
+	if out := BuildInsights(InsightInput{Cur: KPIs{Visitors: 3, Events: 9}, Prev: KPIs{Visitors: 1}}); len(out) != 1 || out[0].Kind != "low_traffic" {
+		t.Errorf("small site: %+v", out)
+	}
+	if out := BuildInsights(InsightInput{}); len(out) != 1 || out[0].Kind != "no_data" {
+		t.Errorf("no data: %+v", out)
+	}
+	// One-time visitors: 100 new users in week 0, 8 back in week 1.
+	out := BuildInsights(InsightInput{Cur: KPIs{Visitors: 100, Events: 500}, Cohorts: []Cohort{
+		{Week: "w1", Size: 100, Users: []uint64{100, 8, 3}}, {Week: "w2", Size: 50, Users: []uint64{50}},
+	}})
+	found := false
+	for _, i := range out {
+		if i.Kind == "low_return" && i.Params["pct"] == 8.0 {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("low_return missing: %+v", out)
 	}
 }
 

@@ -135,6 +135,10 @@
   function insightText(i) {
     var p = i.params || {};
     switch (i.kind) {
+      case "no_data": return "ยังไม่มีข้อมูลเข้ามาใน " + p.days + " วันนี้ เช็กว่าใส่โค้ด SDK ในเว็บหรือเกมแล้ว และ key กับ host ถูก (ลองกดส่ง event ทดสอบในแท็บ ติดตั้ง แล้วดูแท็บ เหตุการณ์สด)";
+      case "low_traffic": return "ยังมีผู้เข้าชมน้อย (" + fmt(p.visitors) + " คนใน " + p.days + " วัน) เริ่มจาก: ส่ง sitemap ใน Google Search Console และ Bing Webmaster Tools, โพสต์ลิงก์ใน itch.io, Reddit, Pantip และกลุ่ม Facebook, ใส่ <span class=\"mono\">?utm_source=</span> ในลิงก์ที่แชร์ จะได้รู้ว่าช่องทางไหนได้ผล";
+      case "low_return": return "คนส่วนใหญ่เข้ามาครั้งเดียว: กลับมาในสัปดาห์ถัดไปแค่ <strong>" + p.pct + "%</strong> ลองเพิ่มเหตุผลให้กลับมา เช่น ภารกิจหรือโจทย์รายวัน, รางวัลล็อกอินต่อเนื่อง, อันดับรายสัปดาห์, ปุ่มเพิ่มไปหน้าจอโฮม และช่องทางแจ้งข่าว (LINE OA/เพจ) เวลามีด่านใหม่";
+      case "high_return": return "ผู้ใช้กลับมาเล่นซ้ำดี: <strong>" + p.pct + "%</strong> กลับมาในสัปดาห์ถัดไป";
       case "traffic_up": return "ผู้เข้าชม " + p.days + " วันนี้เพิ่มขึ้น <strong>" + abs(p.pct) + "%</strong> เทียบช่วงก่อน (" + fmt(p.visitors) + " คน)";
       case "traffic_down": return "ผู้เข้าชม " + p.days + " วันนี้ลดลง <strong>" + abs(p.pct) + "%</strong> เทียบช่วงก่อน (" + fmt(p.visitors) + " คน) ดูแท็บ SEO ว่าช่องทางไหนลด";
       case "traffic_new": return "เริ่มมีผู้เข้าชม " + fmt(p.visitors) + " คนใน " + p.days + " วันนี้";
