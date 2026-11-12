@@ -1,0 +1,46 @@
+# Production overrides for one public VM. Used by deploy/install.sh:
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build
+# Values come from .env (written by install.sh). Only Caddy is reachable from
+# the internet (80/443); every other port stays inside the Docker network.
+
+services:
+  redpanda:
+    ports: !reset []
+
+  clickhouse:
+    ports: !reset []
+    environment:
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?run deploy/install.sh}
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --password \"$$CLICKHOUSE_PASSWORD\" -q 'SELECT 1 FROM analytics.events LIMIT 1' || exit 1"]
+
+  collector:
+    ports: !reset []
+    environment:
+      PROJECTS: "1|${WRITE_KEY}|${READ_KEY}|${ALLOWED_ORIGINS}|2000|10000|${RETENTION_DAYS:-395}"
+
+  queryapi:
+    ports: !reset []
+    environment:
+      CLICKHOUSE_PASSWORD: ${QUERY_API_PASSWORD:?run deploy/install.sh}
+      PROJECTS: "1|${WRITE_KEY}|${READ_KEY}|*"
+      COLLECTOR_PUBLIC_URL: https://${INGEST_HOST}
+
+  caddy:
+    image: caddy:2.8
+    depends_on: [collector, queryapi]
+    environment:
+      INGEST_HOST: ${INGEST_HOST}
+      DASH_HOST: ${DASH_HOST}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

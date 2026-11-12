@@ -189,3 +189,21 @@ func TestPersonIDStable(t *testing.T) {
 		t.Fatalf("uuidv7: %s", u)
 	}
 }
+
+func TestAllowedOriginWildcard(t *testing.T) {
+	list := []string{"https://game.example.com", "https://*.pages.example.dev"}
+	cases := map[string]bool{
+		"https://game.example.com":                  true,
+		"https://develop.pages.example.dev":         true,
+		"https://a-b.develop.pages.example.dev":     true,
+		"https://pages.example.dev":                 false,
+		"http://develop.pages.example.dev":          false,
+		"https://evilpages.example.dev":             false,
+		"https://develop.pages.example.dev.evil.io": false,
+	}
+	for origin, want := range cases {
+		if got := allowed(list, origin); got != want {
+			t.Errorf("allowed(%q) = %v, want %v", origin, got, want)
+		}
+	}
+}

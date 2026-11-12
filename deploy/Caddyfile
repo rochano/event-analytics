@@ -1,0 +1,11 @@
+# HTTPS for the collector and the dashboard. Caddy gets certificates from
+# Let's Encrypt automatically. Hostnames come from .env (install.sh).
+{$INGEST_HOST} {
+	encode zstd gzip
+	reverse_proxy collector:8080
+}
+
+{$DASH_HOST} {
+	encode zstd gzip
+	reverse_proxy queryapi:8081
+}
