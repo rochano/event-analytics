@@ -95,3 +95,20 @@ h3 { margin: 16px 0 8px; font-size: 14px; font-weight: 600; }
 .rate.poor { background: #FEF2F2; color: var(--bad); }
 .checklist { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
 .chip { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* Account and admin pages */
+.proj { display: flex; flex-direction: column; gap: 10px; }
+.proj + .proj { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 16px; }
+.proj-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.proj-head strong { font-size: 15px; }
+.kv { display: grid; grid-template-columns: 110px 1fr; gap: 6px 12px; font-size: 13px; align-items: center; }
+.kv span:nth-child(odd) { color: var(--muted); }
+.kv code { word-break: break-all; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+button.ghost { background: #fff; color: var(--ink); border: 1px solid #D1D5DB; border-radius: 8px; padding: 8px 12px; min-height: 40px; font: inherit; cursor: pointer; }
+.field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 260px; min-width: 0; }
+.field label { font-size: 13px; color: var(--muted); }
+.msg { font-size: 13px; }
+.msg.err { color: var(--bad); } .msg.ok { color: var(--good); }
+a { color: var(--blue); }
+@media (max-width: 520px) { .kv { grid-template-columns: 1fr; } .kv span:nth-child(odd) { margin-top: 6px; } }
