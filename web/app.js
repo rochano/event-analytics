@@ -379,7 +379,8 @@
       state.config = c;
       try { localStorage.setItem("pulse_read_key", key); } catch (e) {}
       $("#login").classList.add("hidden");
-      $("#project").textContent = "app_id " + c.app_id + " · " + c.timezone;
+      $("#project").textContent = (c.name || "app_id " + c.app_id) + " · " + c.timezone;
+      if (c.name) document.title = c.name + " · gstats";
       render();
     }).catch(noop);
   }

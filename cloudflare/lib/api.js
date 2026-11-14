@@ -117,7 +117,7 @@ export async function handleApi(request, env, now = Date.now()) {
   const off = tzOffset(env);
 
   if (route === "config") {
-    return json(200, { app_id: proj.appId, write_key: proj.writeKey, collector_url: url.origin, timezone: tzLabel(off) });
+    return json(200, { app_id: proj.appId, name: proj.name, write_key: proj.writeKey, collector_url: url.origin, timezone: tzLabel(off) });
   }
   if (!TTL[route]) return json(404, { error: "not found" });
 

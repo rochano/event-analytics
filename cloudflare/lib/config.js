@@ -1,12 +1,13 @@
 // Project settings for the Cloudflare edition. PROJECTS uses the same format as
-// the Go services: "app_id|write_key|read_key|origins(comma)|rate|burst|retention_days;..."
+// the Go services: "app_id|write_key|read_key|origins(comma)|rate|burst|retention_days|name;..."
 export function parseProjects(raw) {
   const out = [];
   // Forgive what pasting into a dashboard field tends to add: quotes,
   // backticks, spaces and line breaks. Projects may also be one per line.
   const text = String(raw || "").replace(/[`"']/g, "");
   for (const part of text.split(/[;\r\n]+/)) {
-    const f = part.trim().split("|").map((s) => s.replace(/\s+/g, ""));
+    const raw = part.trim().split("|");
+    const f = raw.map((s) => s.replace(/\s+/g, ""));
     if (!f[0]) continue;
     const appId = Number(f[0]);
     if (!Number.isInteger(appId) || appId <= 0 || !f[1]) continue; // skipped; /healthz shows the count
@@ -16,6 +17,7 @@ export function parseProjects(raw) {
       readKey: f[2] || "",
       origins: f[3] && f[3] !== "*" ? f[3].split(",").map((s) => s.trim()).filter(Boolean) : [],
       retentionDays: Number(f[6]) > 0 ? Number(f[6]) : 395,
+      name: (raw[7] || "").trim(), // spaces kept
     });
   }
   return out;

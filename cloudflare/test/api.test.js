@@ -7,7 +7,7 @@ const UA_MOBILE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleW
 const UA_DESK = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36";
 
 function env() {
-  return { DB: fakeD1(), PROJECTS: "1|pk_test|rk_test|https://game.example.com,https://*.pages.dev||;2|pk_two|rk_two|*", TZ_OFFSET_MINUTES: "420" };
+  return { DB: fakeD1(), PROJECTS: "1|pk_test|rk_test|https://game.example.com,https://*.pages.dev|||90| Tavern  Knights ;2|pk_two|rk_two|*", TZ_OFFSET_MINUTES: "420" };
 }
 
 function post(e, body, headers = {}) {
@@ -118,7 +118,7 @@ test("ingest then every dashboard route", async () => {
   assert.equal(ins.data[0].kind, "low_traffic");
 
   const cfg = await get(e, "config");
-  assert.deepEqual(cfg.body, { app_id: 1, write_key: "pk_test", collector_url: "https://a.pages.dev", timezone: "UTC+07:00" });
+  assert.deepEqual(cfg.body, { app_id: 1, name: "Tavern  Knights", write_key: "pk_test", collector_url: "https://a.pages.dev", timezone: "UTC+07:00" });
 
   // Second call is served from cache.
   const again = await handleApi(new Request("https://a.pages.dev/api/overview?days=7", { headers: { "X-Read-Key": "rk_test" } }), e);
