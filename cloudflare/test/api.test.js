@@ -64,7 +64,7 @@ test("ingest then every dashboard route", async () => {
   assert.equal(ov.data.current.pageviews, 4);
   assert.equal(ov.data.current.events, 8);
   assert.equal(ov.data.current.sessions, 3);
-  assert.ok(Math.abs(ov.data.current.bounce_rate - 2 / 3) < 1e-9);
+  assert.ok(Math.abs(ov.data.current.bounce_rate - 1 / 3) < 1e-9); // s3 has one page but played, so only s2 bounced
   assert.equal(ov.data.active_now >= 0, true);
 
   const tr = await get(e, "trend?days=7");

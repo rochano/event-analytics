@@ -23,13 +23,16 @@ async function first(db, sql, ...args) {
   return (await db.prepare(sql).bind(...args).first()) || {};
 }
 
+// A bounce is a session with one page view and no game or custom event, so a
+// player who stays on one page and plays is not counted as bouncing.
 export async function overview(db, appId, r) {
   const a = await first(db,
     `SELECT COUNT(DISTINCT distinct_id) AS v, COALESCE(SUM(event = '$pageview'), 0) AS pv, COUNT(*) AS e
      FROM events WHERE app_id = ? AND ts >= ? AND ts < ?`, appId, r.from, r.to);
   const s = await first(db,
-    `SELECT COUNT(*) AS n, COALESCE(SUM(pv <= 1), 0) AS b, AVG((en - st) / 1000.0) AS avg
-     FROM (SELECT session_id, MIN(ts) AS st, MAX(ts) AS en, SUM(event = '$pageview') AS pv
+    `SELECT COUNT(*) AS n, COALESCE(SUM(pv <= 1 AND ce = 0), 0) AS b, AVG((en - st) / 1000.0) AS avg
+     FROM (SELECT session_id, MIN(ts) AS st, MAX(ts) AS en, SUM(event = '$pageview') AS pv,
+                  SUM(substr(event, 1, 1) != '$') AS ce
            FROM events WHERE app_id = ? AND ts >= ? AND ts < ? AND session_id != ''
            GROUP BY session_id)`, appId, r.from, r.to);
   const n = s.n || 0;
