@@ -291,14 +291,25 @@
         return '<button type="button" class="chip-btn" data-ev="' + esc(r.value) + '">' + esc(r.value) + "</button>";
       }).join(" ") || "-";
       var input = $("#funnel-steps");
-      if (input.value.trim()) return runFunnel();
+      if (input.value.trim()) { markChips(); return runFunnel(); }
       var saved = null;
       try { saved = localStorage.getItem(funnelKey()); } catch (e) {}
       var steps = saved ? saved.split(",") : guessSteps(rows);
       input.value = steps.join(",");
+      markChips();
       if (steps.length >= 2) runFunnel();
       else $("#funnel").innerHTML = '<p class="muted">ยังมี event ไม่พอสำหรับ funnel ใส่ชื่อ event อย่างน้อย 2 ขั้น หรือรอให้มีผู้เล่นมากขึ้น</p>';
     }).catch(function (e) { $("#funnel").innerHTML = '<p class="muted">' + esc(e.message) + "</p>"; });
+  }
+
+  function funnelSteps() {
+    return $("#funnel-steps").value.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+
+  // markChips highlights the event chips already in the funnel.
+  function markChips() {
+    var on = funnelSteps();
+    $$("#event-names .chip-btn").forEach(function (b) { b.classList.toggle("on", on.indexOf(b.getAttribute("data-ev")) >= 0); });
   }
 
   function saveFunnel() {
@@ -428,10 +439,15 @@
     var b = e.target.closest("button[data-ev]");
     if (!b) return;
     var input = $("#funnel-steps");
-    var list = input.value.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
-    list.push(b.getAttribute("data-ev"));
+    var ev = b.getAttribute("data-ev");
+    var list = funnelSteps();
+    if (list.indexOf(ev) >= 0) list = list.filter(function (s) { return s !== ev; });
+    else list.push(ev);
     input.value = list.slice(-8).join(",");
+    markChips();
+    if (list.length >= 2) { saveFunnel(); runFunnel(); }
   });
+  $("#funnel-steps").addEventListener("input", markChips);
   $("#login-form").addEventListener("submit", function (e) { e.preventDefault(); start($("#key").value.trim()); });
 
   var params = new URLSearchParams(location.search);

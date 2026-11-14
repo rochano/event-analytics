@@ -23,6 +23,7 @@ pre { background: #0F172A; color: #E2E8F0; padding: 12px; border-radius: 8px; ov
 .dot { width: 8px; height: 8px; border-radius: 50%; background: #059669; display: inline-block; }
 .seg { display: flex; background: #F3F4F6; border-radius: 10px; padding: 3px; }
 .seg button { border: 0; background: transparent; border-radius: 8px; padding: 8px 12px; min-height: 36px; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+.chip-btn.on { background: var(--blue); border-color: var(--blue); color: #fff; }
 .seg button.on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 .tabs { display: flex; gap: 4px; overflow-x: auto; }
 .tabs button { background: none; border: 0; border-bottom: 3px solid transparent; color: var(--muted); padding: 12px 14px; min-height: 44px; font: inherit; font-weight: 500; white-space: nowrap; cursor: pointer; }
