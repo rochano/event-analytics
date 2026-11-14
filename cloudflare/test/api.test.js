@@ -18,7 +18,7 @@ function post(e, body, headers = {}) {
 }
 
 async function get(e, path, key = "rk_test") {
-  const res = await handleApi(new Request("https://a.pages.dev/api/" + path, { headers: { "X-Read-Key": key } }), e);
+  const res = await handleApi(new Request("https://a.pages.dev/api/" + path, { headers: { "X-Read-Key": key } }), e, Date.now() + 1); // ranges end before "now": count rows written this same ms
   const body = await res.json();
   return { status: res.status, body, data: body.data };
 }

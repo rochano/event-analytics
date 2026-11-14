@@ -1,6 +1,6 @@
 # ติดตั้งฟรีบน Cloudflare (Pages + D1)
 
-เวอร์ชันเบาของ Pulse ที่รันบน Cloudflare ทั้งหมด ไม่ต้องมีเซิร์ฟเวอร์ ไม่ต้องใส่บัตร และตั้งค่าผ่านหน้าเว็บได้ทั้งหมด
+เวอร์ชันเบาของ gstats ที่รันบน Cloudflare ทั้งหมด ไม่ต้องมีเซิร์ฟเวอร์ ไม่ต้องใส่บัตร และตั้งค่าผ่านหน้าเว็บได้ทั้งหมด
 Dashboard และ SDK เป็นตัวเดียวกับเวอร์ชันเต็ม ใช้ API เหมือนกัน ถ้าวันหนึ่งย้ายไปเวอร์ชันเต็ม (Go + ClickHouse) แค่เปลี่ยน `host` ใน SDK
 
 > A serverless edition: Cloudflare Pages Functions for `/e` and `/api/*`, D1 (SQLite) for storage. Same wire format and API as the Go services. Code: [`cloudflare/`](../cloudflare).
@@ -27,7 +27,7 @@ Dashboard และ SDK เป็นตัวเดียวกับเวอ�
 1. ไปที่ **Workers & Pages > Create > Pages > Connect to Git**
 2. เลือก repo `event-analytics` (ถ้ายังไม่เห็น กด **Add account** ให้ Cloudflare เข้าถึง repo นี้)
 3. ตั้งค่า build:
-   - **Project name:** เช่น `pulse` (จะได้ที่อยู่ `https://pulse.pages.dev`)
+   - **Project name:** เช่น `gstats` (จะได้ที่อยู่ `https://gstats.pages.dev`)
    - **Production branch:** `main`
    - **Framework preset:** None
    - **Build command:** `node build.mjs`
@@ -36,7 +36,7 @@ Dashboard และ SDK เป็นตัวเดียวกับเวอ�
 4. กด **Save and Deploy** รอบแรกจะขึ้นว่าใช้งานไม่ได้ เพราะยังไม่ผูกฐานข้อมูล ไม่เป็นไร ทำข้อ 3 ต่อ
 
 ### 3. ผูกฐานข้อมูลและตั้ง key
-เข้าโปรเจกต์ `pulse` > **Settings**
+เข้าโปรเจกต์ `gstats` > **Settings**
 
 1. **Bindings > Add > D1 database**
    - Variable name: `DB` (ตัวพิมพ์ใหญ่)
@@ -53,15 +53,15 @@ Dashboard และ SDK เป็นตัวเดียวกับเวอ�
 3. ไปแท็บ **Deployments** กด **...** ที่รายการล่าสุด > **Retry deployment** เพื่อให้ค่าใหม่มีผล
 
 ### 4. เปิด dashboard
-เปิด `https://pulse.pages.dev/?key=<read key>` (หรือเปิด `https://pulse.pages.dev` แล้วกรอก read key)
+เปิด `https://gstats.pages.dev/?key=<read key>` (หรือเปิด `https://gstats.pages.dev` แล้วกรอก read key)
 ลองแท็บ **ติดตั้ง** > ส่ง event ทดสอบ แล้วดูแท็บ **เหตุการณ์สด**
 
 ### 5. ใส่โค้ดในเว็บหรือเกม
 ```html
-<script src="https://pulse.pages.dev/sdk/analytics.js"></script>
+<script src="https://gstats.pages.dev/sdk/analytics.js"></script>
 <script>
-  pulse.init({ key: "pk_...", host: "https://pulse.pages.dev" });
-  // pulse.track("stage_clear", { stage: 3 });
+  gstats.init({ key: "pk_...", host: "https://gstats.pages.dev" });
+  // gstats.capture("stage_clear", { stage: 3 });
 </script>
 ```
 รายละเอียดการส่ง event และชื่อ event ที่แนะนำสำหรับเกม ดู [INTEGRATION.md](INTEGRATION.md)
