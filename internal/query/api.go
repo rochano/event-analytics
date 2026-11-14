@@ -148,7 +148,7 @@ func (a *API) days(r *http.Request) (Range, error) {
 
 func (a *API) config(w http.ResponseWriter, _ *http.Request, p config.Project) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"app_id": p.AppID, "write_key": p.WriteKey, "collector_url": a.collector, "timezone": a.tz,
+		"app_id": p.AppID, "name": p.Name, "write_key": p.WriteKey, "collector_url": a.collector, "timezone": a.tz,
 	})
 }
 

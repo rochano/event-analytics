@@ -124,7 +124,7 @@ test("PROJECTS survives sloppy pasting", async () => {
   assert.deepEqual(got.map((p) => [p.appId, p.writeKey, p.readKey, p.origins.length, p.retentionDays]),
     [[1, "pk_a", "rk_a", 2, 90], [2, "pk_b", "rk_b", 0, 395]]);
   const { onRequest } = await import("../functions/healthz.js");
-  const body = await onRequest({ env: { PROJECTS: "1|pk|rk|*" } }).text();
+  const body = await (await onRequest({ env: { PROJECTS: "1|pk|rk|*" } })).text();
   assert.match(body, /MISSING/);
   assert.match(body, /#1/);
   assert.doesNotMatch(body, /pk|rk/);

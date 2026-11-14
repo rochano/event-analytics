@@ -18,13 +18,14 @@ type Project struct {
 	RatePerSec     float64  // sustained events/second
 	Burst          int      // bucket size
 	RetentionDays  uint16
+	Name           string // shown in the dashboard header; optional
 }
 
 // ParseProjects parses PROJECTS, a semicolon-separated list of
-// app_id|write_key|read_key|origins(comma)|rate|burst|retention_days.
+// app_id|write_key|read_key|origins(comma)|rate|burst|retention_days|name.
 // Only app_id and write_key are required.
 //
-//	PROJECTS="1|pk_demo|rk_demo|http://localhost:8080|2000|6000|395"
+//	PROJECTS="1|pk_demo|rk_demo|http://localhost:8080|2000|6000|395|Demo shop"
 func ParseProjects(s string) ([]Project, error) {
 	var out []Project
 	for _, raw := range strings.Split(s, ";") {
@@ -67,6 +68,9 @@ func ParseProjects(s string) ([]Project, error) {
 				return nil, fmt.Errorf("project %q: bad retention: %w", raw, err)
 			}
 			p.RetentionDays = uint16(d)
+		}
+		if len(f) > 7 {
+			p.Name = strings.TrimSpace(f[7])
 		}
 		out = append(out, p)
 	}

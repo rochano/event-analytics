@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gstats · บัญชีของฉัน</title>
+<meta name="description" content="gstats: analytics สำหรับเกมและเว็บ สมัครฟรี ดูผู้เล่น ด่าน SEO และ Core Web Vitals">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap bar">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#1D4ED8"/><path d="M7 19l5-6 4 4 5-8" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><div class="name">gstats</div><div class="sub" id="who">analytics สำหรับเกมและเว็บ</div></div>
+    </div>
+    <button type="button" class="ghost hidden" id="logout">ออกจากระบบ</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="auth" class="card">
+    <div class="seg" role="tablist" aria-label="สมัครหรือเข้าสู่ระบบ" style="width:max-content;margin-bottom:14px">
+      <button type="button" class="on" data-mode="signup">สมัครใช้งานฟรี</button>
+      <button type="button" data-mode="login">เข้าสู่ระบบ</button>
+    </div>
+    <form id="auth-form" class="row wrap-row" style="align-items:flex-end">
+      <div class="field">
+        <label for="email">อีเมล</label>
+        <input id="email" type="email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label for="password">รหัสผ่าน (อย่างน้อย 8 ตัว)</label>
+        <input id="password" type="password" autocomplete="new-password" minlength="8" required>
+      </div>
+      <button class="primary" type="submit" id="auth-btn">สมัครใช้งาน</button>
+    </form>
+    <p class="msg err" id="auth-msg"></p>
+    <p class="muted" id="plan-note">แพ็กเกจฟรีเก็บได้ 10,000 event ต่อเดือน ดูผู้เล่น หน้าเว็บยอดนิยม ช่องทาง SEO และ AI, funnel, retention และ Core Web Vitals</p>
+  </div>
+
+  <div id="app" class="hidden" style="display:flex;flex-direction:column;gap:16px">
+    <div class="card">
+      <div class="card-head"><h2>การใช้งานเดือนนี้</h2><span class="muted" id="month"></span></div>
+      <div class="bars" style="margin-top:12px"><div class="item">
+        <div class="head"><span id="usage-text">–</span><span id="usage-pct"></span></div>
+        <div class="track"><div class="fill" id="usage-bar" style="width:0"></div></div>
+      </div></div>
+      <p class="msg err hidden" id="usage-warn">ใช้ครบโควตาแล้ว event ใหม่จะไม่ถูกเก็บจนถึงต้นเดือนหน้า ติดต่อผู้ดูแลเพื่ออัปเกรดแพ็กเกจ</p>
+    </div>
+
+    <div class="card">
+      <h2>สร้างโปรเจกต์ใหม่</h2>
+      <form id="add-form" class="row wrap-row" style="align-items:flex-end">
+        <div class="field">
+          <label for="new-name">ชื่อเกมหรือเว็บ</label>
+          <input id="new-name" required maxlength="80" placeholder="เช่น My Game">
+        </div>
+        <div class="field">
+          <label for="new-origins">เว็บที่จะส่ง event (เว้นว่าง = ทุกเว็บ)</label>
+          <input id="new-origins" placeholder="https://mygame.com">
+        </div>
+        <button class="primary" type="submit">สร้าง</button>
+      </form>
+      <p class="msg" id="add-msg"></p>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>โปรเจกต์ของฉัน</h2><span class="muted" id="count"></span></div>
+      <div id="list" style="margin-top:12px"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var mode = "signup";
+  var data = null;
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+  var fmt = function (n) { return Number(n || 0).toLocaleString("th-TH"); };
+  var origin = location.origin;
+
+  function api(method, path, body) {
+    return fetch("/api/account/" + path, {
+      method: method, credentials: "same-origin",
+      headers: body !== undefined ? { "Content-Type": "application/json" } : {},
+      body: body !== undefined ? JSON.stringify(body) : undefined
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (r.status === 404 && !j.error) throw new Error("เซิร์ฟเวอร์นี้ยังไม่รองรับการสมัครใช้งาน");
+        if (!r.ok) { var e = new Error(j.error || ("HTTP " + r.status)); e.status = r.status; throw e; }
+        return j.data;
+      });
+    });
+  }
+
+  function snippet(p) {
+    return '<script src="' + origin + '/sdk/analytics.js"><\/script>\n<script>\n  gstats.init({ key: "' + p.write_key + '", host: "' + origin + '" });\n  // gstats.capture("level_complete", { level: 3 });\n<\/script>';
+  }
+
+  function setMode(m) {
+    mode = m;
+    document.querySelectorAll("[data-mode]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-mode") === m); });
+    $("#auth-btn").textContent = m === "signup" ? "สมัครใช้งาน" : "เข้าสู่ระบบ";
+    $("#password").setAttribute("autocomplete", m === "signup" ? "new-password" : "current-password");
+    $("#auth-msg").textContent = "";
+  }
+
+  function render() {
+    $("#auth").classList.add("hidden");
+    $("#app").classList.remove("hidden");
+    $("#logout").classList.remove("hidden");
+    $("#who").textContent = data.email;
+    var u = data.usage, pct = u.quota ? Math.min(100, u.used / u.quota * 100) : 100;
+    $("#month").textContent = u.month;
+    $("#usage-text").textContent = fmt(u.used) + " / " + fmt(u.quota) + " event";
+    $("#usage-pct").textContent = Math.round(pct) + "%";
+    $("#usage-bar").style.width = pct + "%";
+    $("#usage-bar").style.background = pct >= 100 ? "var(--bad)" : pct >= 80 ? "#D97706" : "";
+    $("#usage-warn").classList.toggle("hidden", u.used < u.quota);
+    var list = data.projects;
+    $("#count").textContent = list.length + " โปรเจกต์";
+    $("#list").innerHTML = list.map(function (p) {
+      var dash = origin + "/?key=" + encodeURIComponent(p.read_key);
+      return '<div class="proj" data-id="' + p.app_id + '">' +
+        '<div class="proj-head"><strong>' + esc(p.name) + '</strong><a class="primary" style="text-decoration:none;padding:8px 12px;border-radius:8px;background:var(--blue);color:#fff;font-weight:600" href="' + esc(dash) + '">เปิด dashboard</a></div>' +
+        '<div class="kv">' +
+          '<span>Write key</span><code class="mono">' + esc(p.write_key) + '</code>' +
+          '<span>Read key</span><code class="mono">' + esc(p.read_key) + '</code>' +
+          '<span>เว็บที่อนุญาต</span><span>' + (p.origins.length ? esc(p.origins.join(", ")) : "ทุกเว็บ") + '</span>' +
+        '</div>' +
+        '<details><summary class="muted" style="cursor:pointer">โค้ดสำหรับใส่ในเว็บหรือเกม (วางก่อน &lt;/head&gt;)</summary><pre>' + esc(snippet(p)) + '</pre>' +
+          '<button type="button" class="ghost" data-act="copy">คัดลอกโค้ด</button></details>' +
+        '<div class="actions">' +
+          '<button type="button" class="ghost" data-act="rename">เปลี่ยนชื่อ</button>' +
+          '<button type="button" class="ghost" data-act="origins">แก้เว็บที่อนุญาต</button>' +
+          '<button type="button" class="ghost" data-act="rotate">สร้าง read key ใหม่</button>' +
+        '</div><p class="msg" data-msg></p></div>';
+    }).join("") || '<p class="muted">ยังไม่มีโปรเจกต์ สร้างได้ด้านบน แล้วนำโค้ดไปใส่ในเว็บหรือเกม</p>';
+  }
+
+  function load() {
+    return api("GET", "me").then(function (d) { data = d; render(); });
+  }
+
+  document.querySelectorAll("[data-mode]").forEach(function (b) { b.addEventListener("click", function () { setMode(b.getAttribute("data-mode")); }); });
+
+  $("#auth-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    $("#auth-msg").textContent = "";
+    api("POST", mode, { email: $("#email").value, password: $("#password").value })
+      .then(load)
+      .catch(function (err) { $("#auth-msg").textContent = err.message; });
+  });
+
+  $("#logout").addEventListener("click", function () { api("POST", "logout", {}).finally(function () { location.reload(); }); });
+
+  $("#add-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var msg = $("#add-msg");
+    msg.className = "msg"; msg.textContent = "กำลังสร้าง...";
+    api("POST", "projects", { name: $("#new-name").value, origins: $("#new-origins").value }).then(function (p) {
+      msg.className = "msg ok"; msg.textContent = "สร้าง " + p.name + " แล้ว คัดลอกโค้ดด้านล่างไปใส่ในเว็บได้เลย (ใช้งานได้ภายในประมาณ 30 วินาที)";
+      $("#add-form").reset();
+      return load();
+    }).catch(function (err) { msg.className = "msg err"; msg.textContent = err.message; });
+  });
+
+  $("#list").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    var box = btn.closest(".proj");
+    var id = Number(box.getAttribute("data-id"));
+    var p = data.projects.filter(function (x) { return x.app_id === id; })[0];
+    var msg = box.querySelector("[data-msg]");
+    var act = btn.getAttribute("data-act");
+    if (act === "copy") {
+      navigator.clipboard.writeText(snippet(p)).then(function () { msg.className = "msg ok"; msg.textContent = "คัดลอกแล้ว"; });
+      return;
+    }
+    var body = null;
+    if (act === "rename") { var n = prompt("ชื่อใหม่", p.name); if (n == null) return; body = { name: n }; }
+    if (act === "origins") { var o = prompt("เว็บที่อนุญาต คั่นด้วย , (เว้นว่าง = ทุกเว็บ)", p.origins.join(", ")); if (o == null) return; body = { origins: o }; }
+    if (act === "rotate") { if (!confirm("สร้าง read key ใหม่? ลิงก์ dashboard เดิมจะใช้ไม่ได้")) return; body = { new_read_key: true }; }
+    api("PATCH", "projects/" + id, body).then(load).catch(function (err) { msg.className = "msg err"; msg.textContent = err.message; });
+  });
+
+  if (/[?&]login\b/.test(location.search)) setMode("login");
+  load().catch(function () { /* not signed in: show the form */ });
+})();
+</script>
+</body>
+</html>

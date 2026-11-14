@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>gstats · จัดการโปรเจกต์</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap bar">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#1D4ED8"/><path d="M7 19l5-6 4 4 5-8" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><div class="name">gstats</div><div class="sub">จัดการโปรเจกต์</div></div>
+    </div>
+    <button type="button" class="ghost hidden" id="logout">ออกจากระบบ</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="login" class="card">
+    <h2>ใส่รหัสผู้ดูแล (ADMIN_KEY)</h2>
+    <form id="login-form" class="row wrap-row">
+      <label for="admin-key" class="sr">รหัสผู้ดูแล</label>
+      <input id="admin-key" type="password" autocomplete="current-password" required style="flex:1 1 260px;min-width:0">
+      <button class="primary" type="submit">เข้าสู่ระบบ</button>
+    </form>
+    <p class="msg err" id="login-msg"></p>
+  </div>
+
+  <div id="app" class="hidden" style="display:flex;flex-direction:column;gap:16px">
+    <div class="card">
+      <h2>เพิ่มโปรเจกต์ใหม่</h2>
+      <form id="add-form" class="row wrap-row" style="align-items:flex-end">
+        <div class="field">
+          <label for="new-name">ชื่อเกมหรือเว็บ</label>
+          <input id="new-name" required maxlength="80" placeholder="เช่น Tavern Knights">
+        </div>
+        <div class="field">
+          <label for="new-origins">เว็บที่อนุญาตให้ส่ง event (เว้นว่าง = ทุกเว็บ)</label>
+          <input id="new-origins" placeholder="https://mygame.pages.dev, https://*.mygame.pages.dev">
+        </div>
+        <button class="primary" type="submit">เพิ่ม</button>
+      </form>
+      <p class="msg" id="add-msg"></p>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>โปรเจกต์ทั้งหมด</h2><span class="muted" id="count"></span></div>
+      <div id="list" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>ลูกค้าที่สมัครใช้งาน</h2><span class="muted" id="users-month"></span></div>
+      <div class="scroll" style="margin-top:12px"><table class="table compact">
+        <thead><tr><th>อีเมล</th><th class="num">โปรเจกต์</th><th class="num">ใช้เดือนนี้</th><th class="num">โควตา/เดือน</th><th></th></tr></thead>
+        <tbody id="users"></tbody>
+      </table></div>
+      <p class="msg" id="users-msg"></p>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var KEY = "gstats_admin_key";
+  var adminKey = "";
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+  var origin = location.origin;
+
+  function api(method, path, body) {
+    return fetch("/api/admin/" + path, {
+      method: method,
+      headers: { "X-Admin-Key": adminKey, "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok) { var e = new Error(j.error || ("HTTP " + r.status)); e.status = r.status; throw e; }
+        return j.data;
+      });
+    });
+  }
+
+  function snippet(p) {
+    return '<script src="' + origin + '/sdk/analytics.js"><\/script>\n<script>\n  gstats.init({ key: "' + p.write_key + '", host: "' + origin + '" });\n<\/script>';
+  }
+
+  function render(list) {
+    $("#count").textContent = list.length + " โปรเจกต์";
+    $("#list").innerHTML = list.map(function (p) {
+      var dash = origin + "/?key=" + encodeURIComponent(p.read_key || "");
+      return '<div class="proj" data-id="' + p.app_id + '">' +
+        '<div class="proj-head"><strong>' + esc(p.name || ("โปรเจกต์ " + p.app_id)) + '</strong>' +
+        '<span class="badge' + (p.editable ? '' : ' c') + '">#' + p.app_id + (p.editable ? '' : ' · ตั้งใน PROJECTS') + '</span></div>' +
+        '<div class="kv">' +
+          '<span>Dashboard</span><span>' + (p.read_key ? '<a href="' + esc(dash) + '" target="_blank" rel="noopener">เปิด dashboard</a>' : '<span class="muted">ไม่มี read key</span>') + '</span>' +
+          '<span>Write key</span><code class="mono">' + esc(p.write_key) + '</code>' +
+          '<span>Read key</span><code class="mono">' + esc(p.read_key || "-") + '</code>' +
+          '<span>เว็บที่อนุญาต</span><span>' + (p.origins.length ? esc(p.origins.join(", ")) : "ทุกเว็บ") + '</span>' +
+        '</div>' +
+        '<details><summary class="muted" style="cursor:pointer">โค้ดสำหรับใส่ในเว็บ (วางก่อน &lt;/head&gt;)</summary><pre>' + esc(snippet(p)) + '</pre>' +
+          '<button type="button" class="ghost" data-act="copy">คัดลอกโค้ด</button></details>' +
+        (p.editable ? '<div class="actions">' +
+          '<button type="button" class="ghost" data-act="rename">เปลี่ยนชื่อ</button>' +
+          '<button type="button" class="ghost" data-act="origins">แก้เว็บที่อนุญาต</button>' +
+          '<button type="button" class="ghost" data-act="rotate">สร้าง read key ใหม่</button>' +
+        '</div>' : '') +
+        '<p class="msg" data-msg></p>' +
+      '</div>';
+    }).join("") || '<p class="muted">ยังไม่มีโปรเจกต์ เพิ่มได้ด้านบน</p>';
+    $("#list").__data = list;
+  }
+
+  function loadUsers() {
+    return api("GET", "users").then(function (d) {
+      $("#users-month").textContent = d.month;
+      var fmt = function (n) { return Number(n || 0).toLocaleString("th-TH"); };
+      $("#users").innerHTML = d.users.map(function (u) {
+        var over = u.used >= u.quota;
+        return '<tr><td>' + esc(u.email) + '</td><td class="num">' + u.projects + '</td>' +
+          '<td class="num"' + (over ? ' style="color:var(--bad);font-weight:600"' : '') + '>' + fmt(u.used) + '</td>' +
+          '<td class="num">' + fmt(u.quota) + '</td>' +
+          '<td class="num"><button type="button" class="ghost" data-user="' + u.id + '" data-quota="' + u.quota + '">เปลี่ยนโควตา</button></td></tr>';
+      }).join("") || '<tr><td colspan="5" class="muted">ยังไม่มีลูกค้าสมัคร (หน้าสมัคร: ' + esc(origin) + '/account.html)</td></tr>';
+    });
+  }
+
+  $("#users").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-user]");
+    if (!b) return;
+    var q = prompt("โควตา event ต่อเดือน", b.getAttribute("data-quota"));
+    if (q == null) return;
+    api("PATCH", "users/" + b.getAttribute("data-user"), { event_quota: Number(String(q).replace(/[, ]/g, "")) })
+      .then(loadUsers).catch(function (err) { $("#users-msg").className = "msg err"; $("#users-msg").textContent = err.message; });
+  });
+
+  function load() {
+    loadUsers().catch(function () {});
+    return api("GET", "projects").then(function (list) {
+      $("#login").classList.add("hidden");
+      $("#app").classList.remove("hidden");
+      $("#logout").classList.remove("hidden");
+      render(list);
+    });
+  }
+
+  function login(key) {
+    adminKey = key;
+    load().then(function () {
+      try { localStorage.setItem(KEY, key); } catch (e) {}
+    }).catch(function (e) {
+      try { localStorage.removeItem(KEY); } catch (x) {}
+      $("#login").classList.remove("hidden");
+      $("#app").classList.add("hidden");
+      $("#login-msg").textContent = e.message;
+    });
+  }
+
+  $("#login-form").addEventListener("submit", function (e) { e.preventDefault(); login($("#admin-key").value.trim()); });
+  $("#logout").addEventListener("click", function () { try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); });
+
+  $("#add-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var msg = $("#add-msg");
+    msg.className = "msg"; msg.textContent = "กำลังเพิ่ม...";
+    api("POST", "projects", { name: $("#new-name").value, origins: $("#new-origins").value }).then(function (p) {
+      msg.className = "msg ok"; msg.textContent = "เพิ่ม " + p.name + " แล้ว (#" + p.app_id + ") ใช้งานได้ภายในประมาณ 30 วินาที";
+      $("#add-form").reset();
+      return load();
+    }).catch(function (err) { msg.className = "msg err"; msg.textContent = err.message; });
+  });
+
+  $("#list").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    var box = btn.closest(".proj");
+    var id = Number(box.getAttribute("data-id"));
+    var p = ($("#list").__data || []).filter(function (x) { return x.app_id === id; })[0];
+    var msg = box.querySelector("[data-msg]");
+    var act = btn.getAttribute("data-act");
+    if (act === "copy") {
+      navigator.clipboard.writeText(snippet(p)).then(function () { msg.className = "msg ok"; msg.textContent = "คัดลอกแล้ว"; });
+      return;
+    }
+    var body = null;
+    if (act === "rename") { var n = prompt("ชื่อใหม่", p.name); if (n == null) return; body = { name: n }; }
+    if (act === "origins") { var o = prompt("เว็บที่อนุญาต คั่นด้วย , (เว้นว่าง = ทุกเว็บ)", p.origins.join(", ")); if (o == null) return; body = { origins: o }; }
+    if (act === "rotate") { if (!confirm("สร้าง read key ใหม่? ลิงก์ dashboard เดิมจะใช้ไม่ได้")) return; body = { new_read_key: true }; }
+    api("PATCH", "projects/" + id, body).then(load).catch(function (err) { msg.className = "msg err"; msg.textContent = err.message; });
+  });
+
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  if (saved) login(saved);
+})();
+</script>
+</body>
+</html>

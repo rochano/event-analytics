@@ -1,13 +1,17 @@
 // Request handlers for the Cloudflare edition: POST /e (ingest) and /api/*
 // (dashboard). Same routes, parameters and JSON as the Go services, so the
 // dashboard in web/ and every SDK work unchanged.
-import { originAllowed, projectsFrom, sameKey, tzLabel, tzOffset } from "./config.js";
+import { originAllowed, sameKey, tzLabel, tzOffset } from "./config.js";
+import { handleAccount } from "./accounts.js";
+import { AdminError, allProjects, byReadKey, byWriteKey, createProject, updateProject } from "./projects.js";
 import { MAX_EVENTS_PER_BATCH, normalize, parseBatch, readBody } from "./ingest.js";
 import { ensureSchema, insertRows } from "./schema.js";
 import * as store from "./store.js";
 import { buildSEO } from "./seo.js";
 import { buildInsights } from "./insights.js";
 import { daysRange, previous } from "./time.js";
+import { addUsage, forgetUsage, monthOf, overQuota } from "./usage.js";
+import { ACCOUNTS_SCHEMA } from "./accounts.js";
 
 const json = (status, body, headers = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
@@ -45,7 +49,7 @@ export async function handleIngest(request, env, waitUntil = () => {}) {
   }
   const url = new URL(request.url);
   const key = request.headers.get("X-Api-Key") || url.searchParams.get("k") || parsed.apiKey;
-  const proj = projectsFrom(env).find((p) => sameKey(p.writeKey, key));
+  const proj = key ? await byWriteKey(env, key) : null;
   if (!proj) return text(401, "unknown project key");
 
   const origin = request.headers.get("Origin") || "";
@@ -78,7 +82,12 @@ export async function handleIngest(request, env, waitUntil = () => {}) {
   try {
     const d = db(env);
     await ensureSchema(d);
+    const off = tzOffset(env);
+    if (proj.ownerId && (await overQuota(d, proj.ownerId, receivedAt, off))) {
+      return text(402, "monthly event quota reached", cors);
+    }
     await insertRows(d, proj.appId, rows);
+    if (proj.ownerId) await addUsage(d, proj.ownerId, rows.length, receivedAt, off).catch((e) => console.error("usage failed", e && e.message));
     // Now and then, delete rows past the retention period.
     if (Math.random() < 0.005) waitUntil(store.deleteOld(d, proj.appId, proj.retentionDays, receivedAt).catch(() => {}));
   } catch (e) {
@@ -111,13 +120,15 @@ function intParam(q, name, def, lo, hi, msg) {
 export async function handleApi(request, env, now = Date.now()) {
   const url = new URL(request.url);
   const route = url.pathname.replace(/^\/api\/?/, "").replace(/\/$/, "");
+  if (route === "admin" || route.startsWith("admin/")) return handleAdmin(request, env, route.slice(6));
+  if (route.startsWith("account/")) return handleAccount(request, env, route.slice(8), now);
   const key = request.headers.get("X-Read-Key") || url.searchParams.get("key") || "";
-  const proj = projectsFrom(env).find((p) => p.readKey && sameKey(p.readKey, key));
+  const proj = key ? await byReadKey(env, key) : null;
   if (!proj) return json(401, { error: "invalid read key" });
   const off = tzOffset(env);
 
   if (route === "config") {
-    return json(200, { app_id: proj.appId, write_key: proj.writeKey, collector_url: url.origin, timezone: tzLabel(off) });
+    return json(200, { app_id: proj.appId, name: proj.name, write_key: proj.writeKey, collector_url: url.origin, timezone: tzLabel(off) });
   }
   if (!TTL[route]) return json(404, { error: "not found" });
 
@@ -210,4 +221,55 @@ async function compute(route, q, d, appId, off, now) {
     }
   }
   throw new BadRequest("unknown route");
+}
+
+// ---- Admin: list, add and edit projects (needs the ADMIN_KEY secret) -----------
+
+const publicProject = (p) => ({
+  app_id: p.appId, name: p.name || "", write_key: p.writeKey, read_key: p.readKey,
+  origins: p.origins, retention_days: p.retentionDays, source: p.source, editable: p.source === "db",
+});
+
+async function handleAdmin(request, env, sub) {
+  if (!env.ADMIN_KEY) return json(503, { error: "ยังไม่ได้ตั้ง ADMIN_KEY (Settings > Variables and Secrets)" });
+  if (!sameKey(String(env.ADMIN_KEY).trim(), request.headers.get("X-Admin-Key") || "")) return json(401, { error: "รหัสผู้ดูแลไม่ถูกต้อง" });
+  try {
+    db(env);
+    if (sub === "projects" && request.method === "GET") {
+      return json(200, { data: (await allProjects(env)).map(publicProject) });
+    }
+    if (sub === "projects" && request.method === "POST") {
+      return json(201, { data: publicProject(await createProject(env, await request.json().catch(() => ({})))) });
+    }
+    const m = /^projects\/(\d+)$/.exec(sub);
+    if (m && request.method === "PATCH") {
+      return json(200, { data: publicProject(await updateProject(env, Number(m[1]), await request.json().catch(() => ({})))) });
+    }
+    if (sub === "users" && request.method === "GET") {
+      const d = db(env);
+      await d.batch(ACCOUNTS_SCHEMA.map((q) => d.prepare(q)));
+      const month = monthOf(Date.now(), tzOffset(env));
+      const res = await d.prepare(
+        `SELECT u.id, u.email, u.event_quota AS quota, u.created_at, COALESCE(g.events, 0) AS used,
+                (SELECT COUNT(*) FROM projects p WHERE p.owner_id = u.id) AS projects
+         FROM users u LEFT JOIN usage g ON g.owner_id = u.id AND g.month = ?
+         ORDER BY used DESC, u.id LIMIT 500`,
+      ).bind(month).all().catch(() => ({ results: [] }));
+      return json(200, { data: { month, users: res.results || [] } });
+    }
+    const mu = /^users\/(\d+)$/.exec(sub);
+    if (mu && request.method === "PATCH") {
+      const body = await request.json().catch(() => ({}));
+      const q = Number(body.event_quota);
+      if (!Number.isInteger(q) || q < 0 || q > 1e10) throw new AdminError(400, "โควตาต้องเป็นจำนวนเต็ม 0 ขึ้นไป");
+      await db(env).prepare("UPDATE users SET event_quota = ? WHERE id = ?").bind(q, Number(mu[1])).run();
+      forgetUsage(Number(mu[1]));
+      return json(200, { data: { id: Number(mu[1]), event_quota: q } });
+    }
+    return json(404, { error: "not found" });
+  } catch (e) {
+    if (e instanceof AdminError || e.status) return json(e.status || 400, { error: e.message });
+    console.error("admin failed", e && e.message);
+    return json(500, { error: "admin failed" });
+  }
 }
