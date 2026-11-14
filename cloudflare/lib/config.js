@@ -2,11 +2,14 @@
 // the Go services: "app_id|write_key|read_key|origins(comma)|rate|burst|retention_days;..."
 export function parseProjects(raw) {
   const out = [];
-  for (const part of String(raw || "").split(";")) {
-    const f = part.trim().split("|").map((s) => s.trim());
+  // Forgive what pasting into a dashboard field tends to add: quotes,
+  // backticks, spaces and line breaks. Projects may also be one per line.
+  const text = String(raw || "").replace(/[`"']/g, "");
+  for (const part of text.split(/[;\r\n]+/)) {
+    const f = part.trim().split("|").map((s) => s.replace(/\s+/g, ""));
     if (!f[0]) continue;
     const appId = Number(f[0]);
-    if (!Number.isInteger(appId) || appId <= 0 || !f[1]) throw new Error(`bad project ${part}`);
+    if (!Number.isInteger(appId) || appId <= 0 || !f[1]) continue; // skipped; /healthz shows the count
     out.push({
       appId,
       writeKey: f[1],

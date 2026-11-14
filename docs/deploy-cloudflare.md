@@ -53,6 +53,8 @@ Dashboard และ SDK เป็นตัวเดียวกับเวอ�
 3. ไปแท็บ **Deployments** กด **...** ที่รายการล่าสุด > **Retry deployment** เพื่อให้ค่าใหม่มีผล
 
 ### 4. เปิด dashboard
+เช็กก่อนว่าตั้งค่าครบ: เปิด `https://gstats.pages.dev/healthz` ต้องเห็น `database DB: connected` และ `projects: #1, #2` (หน้านี้ไม่แสดง key)
+
 เปิด `https://gstats.pages.dev/?key=<read key>` (หรือเปิด `https://gstats.pages.dev` แล้วกรอก read key)
 ลองแท็บ **ติดตั้ง** > ส่ง event ทดสอบ แล้วดูแท็บ **เหตุการณ์สด**
 

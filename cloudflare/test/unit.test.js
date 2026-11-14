@@ -117,3 +117,15 @@ test("projects and origins", () => {
   assert.ok(!originAllowed(p[0].origins, "https://evil.com"));
   assert.ok(originAllowed(p[1].origins, "https://anything.com"));
 });
+
+test("PROJECTS survives sloppy pasting", async () => {
+  const { parseProjects } = await import("../lib/config.js");
+  const got = parseProjects(' "1|pk_a|rk_a|https://a.com, https://b.com|||90 ;\n`2|pk_b|rk_b|*`\n junk ');
+  assert.deepEqual(got.map((p) => [p.appId, p.writeKey, p.readKey, p.origins.length, p.retentionDays]),
+    [[1, "pk_a", "rk_a", 2, 90], [2, "pk_b", "rk_b", 0, 395]]);
+  const { onRequest } = await import("../functions/healthz.js");
+  const body = await onRequest({ env: { PROJECTS: "1|pk|rk|*" } }).text();
+  assert.match(body, /MISSING/);
+  assert.match(body, /#1/);
+  assert.doesNotMatch(body, /pk|rk/);
+});
