@@ -112,3 +112,4 @@ button.ghost { background: #fff; color: var(--ink); border: 1px solid #D1D5DB; b
 .msg.err { color: var(--bad); } .msg.ok { color: var(--good); }
 a { color: var(--blue); }
 @media (max-width: 520px) { .kv { grid-template-columns: 1fr; } .kv span:nth-child(odd) { margin-top: 6px; } }
+.chip-btn { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 4px 10px; min-height: 32px; margin: 2px 2px 2px 0; font: inherit; font-size: 12.5px; color: var(--ink); cursor: pointer; }
