@@ -287,6 +287,7 @@
 
   function loadFunnel() {
     api("events?days=" + state.days).then(function (rows) {
+      state.eventRows = rows;
       $("#event-names").innerHTML = rows.map(function (r) {
         return '<button type="button" class="chip-btn" data-ev="' + esc(r.value) + '">' + esc(r.value) + "</button>";
       }).join(" ") || "-";
@@ -319,6 +320,14 @@
 
   function runFunnel() {
     var steps = $("#funnel-steps").value;
+    var list = funnelSteps();
+    if (!list.length) { $("#funnel").innerHTML = '<p class="muted">แตะชื่อ event ด้านบนเพื่อเลือกขั้นแรก</p>'; return; }
+    if (list.length === 1) {
+      var row = (state.eventRows || []).filter(function (r) { return r.value === list[0]; })[0];
+      $("#funnel").innerHTML = '<p><strong>' + fmt(row ? row.users : 0) + "</strong> คนทำ " + esc(list[0]) +
+        ' ในช่วงนี้</p><p class="muted">funnel ต้องมีอย่างน้อย 2 ขั้น แตะ event อื่นด้านบนเพื่อดูว่ามีกี่คนทำต่อถึงขั้นถัดไป</p>';
+      return;
+    }
     var win = $("#funnel-window").value;
     $("#funnel").innerHTML = '<p class="muted">กำลังคำนวณ…</p>';
     api("funnel?days=" + state.days + "&window=" + win + "&steps=" + encodeURIComponent(steps)).then(function (res) {
@@ -445,7 +454,8 @@
     else list.push(ev);
     input.value = list.slice(-8).join(",");
     markChips();
-    if (list.length >= 2) { saveFunnel(); runFunnel(); }
+    saveFunnel();
+    runFunnel();
   });
   $("#funnel-steps").addEventListener("input", markChips);
   $("#login-form").addEventListener("submit", function (e) { e.preventDefault(); start($("#key").value.trim()); });
