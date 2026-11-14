@@ -85,7 +85,7 @@ cat <<MSG
 
  In the game:
    <script src="https://$DASH_HOST/sdk/analytics.js"></script>
-   pulse.init({ key: "$WRITE_KEY", host: "https://$INGEST_HOST" })
+   gstats.init({ key: "$WRITE_KEY", host: "https://$INGEST_HOST" })
 
  HTTPS certificates can take a minute on first visit.
  Logs:    cd $DIR && $DC logs -f collector

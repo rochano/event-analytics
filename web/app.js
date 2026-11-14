@@ -336,8 +336,8 @@
     if (!c) return;
     var origin = location.origin;
     $("#snippet").textContent =
-      '<script src="' + origin + '/sdk/analytics.js"></script>\n<script>\n  pulse.init({ key: "' + c.write_key + '", host: "' + c.collector_url + '" });\n' +
-      '  // pulse.capture("add_to_cart", { sku: "SNK-X", price: 2490 });\n  // pulse.identify("user_123");\n</script>';
+      '<script src="' + origin + '/sdk/analytics.js"></script>\n<script>\n  gstats.init({ key: "' + c.write_key + '", host: "' + c.collector_url + '" });\n' +
+      '  // gstats.capture("add_to_cart", { sku: "SNK-X", price: 2490 });\n  // gstats.identify("user_123");\n</script>';
     $("#curl").textContent =
       "curl -X POST " + c.collector_url + "/e \\\n  -H 'Content-Type: application/json' -H 'X-Api-Key: " + c.write_key + "' \\\n" +
       "  -d '[{\"event\":\"level_complete\",\"distinct_id\":\"player_1\",\"properties\":{\"level_id\":\"w1_s3\",\"stars\":3}}]'";

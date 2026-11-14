@@ -38,7 +38,7 @@ Re-running the script is safe: it keeps the existing `.env` (edit that file to c
 The installer prints these with your real values:
 
 - Dashboard: `https://<analytics host>/?key=<read key>` (works on a phone)
-- SDK: load `https://<analytics host>/sdk/analytics.js`, then `pulse.init({ key: "<write key>", host: "https://<ingest host>" })`
+- SDK: load `https://<analytics host>/sdk/analytics.js`, then `gstats.init({ key: "<write key>", host: "https://<ingest host>" })`
 - Games and servers: `POST https://<ingest host>/e` (see [INTEGRATION.md](INTEGRATION.md))
 
 Optional: put your own domain behind Cloudflare's free plan (proxied) for DDoS protection and bot filtering. The collector reads the `CF-IPCountry` header for country stats.

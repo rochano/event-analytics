@@ -1,4 +1,4 @@
-# Event Analytics (Pulse)
+# Event Analytics (gstats)
 
 A self-hosted product analytics and event tracking platform for websites, mobile apps and games, built for write spikes and low cost per event.
 
@@ -25,7 +25,7 @@ flowchart LR
 | `clickhouse/schema.sql` | Raw `events` table (MergeTree, JSON properties, per-plan TTL), Kafka ingest with an error table, rollups (`events_hourly`, `user_days`, `sessions`), read-only user with tenant row policies |
 | `cmd/queryapi`, `internal/query` | Dashboard API: overview KPIs, trends, breakdowns, funnels (`windowFunnel`), weekly retention, live feed; result cache with request coalescing |
 | `web/` | Dashboard (no build step) and `demo.html`, a test shop page that uses the SDK |
-| `sdk/js/analytics.js` | Browser SDK (`window.pulse`): batching, `sendBeacon` on page hide, persistent retry queue with backoff, UUIDv7 ids, sessions, SPA pageviews, opt-out |
+| `sdk/js/analytics.js` | Browser SDK (`window.gstats`): batching, `sendBeacon` on page hide, persistent retry queue with backoff, UUIDv7 ids, sessions, SPA pageviews, opt-out |
 | `cmd/seed` | Generates 60 days of realistic demo data |
 | `loadtest/collector.js` | k6 spike test |
 | `cloudflare/` | Serverless edition on Cloudflare Pages Functions + D1 (same API and dashboard) |
@@ -60,8 +60,8 @@ Add the SDK to a website:
 ```html
 <script src="http://localhost:8081/sdk/analytics.js"></script>
 <script>
-  pulse.init({ key: "pk_demo", host: "http://localhost:8080" });
-  pulse.capture("add_to_cart", { sku: "SNK-X", price: 2490 });
+  gstats.init({ key: "pk_demo", host: "http://localhost:8080" });
+  gstats.capture("add_to_cart", { sku: "SNK-X", price: 2490 });
 </script>
 ```
 

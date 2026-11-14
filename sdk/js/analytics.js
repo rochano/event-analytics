@@ -1,12 +1,12 @@
 /*!
- * Pulse Analytics JS SDK (MVP) — batching, sendBeacon on page hide,
+ * gstats JS SDK (MVP) — batching, sendBeacon on page hide,
  * persistent retry queue, UUIDv7 event ids, sessions, auto pageviews.
  *
  *   <script src="https://your-host/sdk/analytics.js"></script>
  *   <script>
- *     pulse.init({ key: "pk_demo", host: "https://ingest.example.com" });
- *     pulse.capture("add_to_cart", { sku: "SNK-X", price: 2490 });
- *     pulse.identify("user_123", { plan: "pro" });
+ *     gstats.init({ key: "pk_demo", host: "https://ingest.example.com" });
+ *     gstats.capture("add_to_cart", { sku: "SNK-X", price: 2490 });
+ *     gstats.identify("user_123", { plan: "pro" });
  *   </script>
  */
 (function (root) {
@@ -30,7 +30,7 @@
 
   function safe(fn) {
     return function () {
-      try { return fn.apply(this, arguments); } catch (e) { if (cfg && cfg.debug) console.warn("[pulse]", e); }
+      try { return fn.apply(this, arguments); } catch (e) { if (cfg && cfg.debug) console.warn("[gstats]", e); }
     };
   }
 
@@ -214,7 +214,7 @@
   var api = {
     init: safe(function (options) {
       cfg = assign({ host: "", key: "", batchSize: 20, flushIntervalMs: 5000, autoPageview: true, webVitals: true, debug: false }, options);
-      if (!cfg.key || !cfg.host) throw new Error("pulse.init needs key and host");
+      if (!cfg.key || !cfg.host) throw new Error("gstats.init needs key and host");
       try { queue = JSON.parse(load(STORAGE_QUEUE) || "[]"); } catch (e) { queue = []; }
       if (root.document) {
         var reportVitals = cfg.webVitals ? watchVitals() : function () {};
@@ -269,6 +269,7 @@
     _queue: function () { return queue.slice(); }
   };
 
-  root.pulse = api;
+  root.gstats = api;
+  root.pulse = api; // old name, kept so existing pages keep working
   if (typeof module === "object" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : this);

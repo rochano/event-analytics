@@ -137,12 +137,12 @@ IEnumerator SendBatch(string jsonArray) {
 ```
 
 The same HTTP API works from Unreal, Godot, Cocos, native iOS/Android, or a game server.
-SDKs: JavaScript is in `sdk/js/analytics.js` (`window.pulse`). iOS, Android, Unity and server SDKs are planned; until then use the HTTP API above.
+SDKs: JavaScript is in `sdk/js/analytics.js` (`window.gstats`; `window.pulse` still works). iOS, Android, Unity and server SDKs are planned; until then use the HTTP API above.
 
 ### SEO data the web SDK collects by itself
 
 - **Traffic source**: every `$pageview` carries `$referrer` and the page URL (with `utm_*` tags). The SEO tab classifies each visit by its first page into Organic Search, AI (ChatGPT, Perplexity, Gemini, Claude, Copilot), Social, Referral, Paid, Email or Direct. Tag your own links with `utm_source` / `utm_medium` (for example `?utm_source=line&utm_medium=social`) so they are counted correctly.
-- **Core Web Vitals**: SDK 0.2.0+ sends one `$web_vitals` event per page load when the page is hidden, with `lcp`, `fcp`, `inp`, `ttfb` (milliseconds) and `cls`. Turn it off with `pulse.init({ ..., webVitals: false })`. Other clients may send the same event and fields.
+- **Core Web Vitals**: SDK 0.2.0+ sends one `$web_vitals` event per page load when the page is hidden, with `lcp`, `fcp`, `inp`, `ttfb` (milliseconds) and `cls`. Turn it off with `gstats.init({ ..., webVitals: false })`. Other clients may send the same event and fields.
 - **Bounce**: a visit with at most one pageview and no custom event. A game session that sends `stage_start` is not a bounce.
 
 ---
