@@ -5,6 +5,7 @@ A self-hosted product analytics and event tracking platform for websites, mobile
 > **ภาษาไทยสั้นๆ:** ระบบเก็บ event ของผู้ใช้ (เว็บ แอป เกม) แล้วแสดงเป็น dashboard ภาพรวม funnel retention และ event สด
 > รันทั้งหมดได้ในเครื่องเดียวด้วย `docker compose up` แล้วค่อยขยายเป็นคลัสเตอร์ตาม [เอกสารสถาปัตยกรรม](docs/architecture.md)
 > วิธีส่ง event จากเว็บหรือเกม ดูได้ที่ [docs/INTEGRATION.md](docs/INTEGRATION.md)
+> อยากใช้ฟรีแบบไม่มีเซิร์ฟเวอร์ ดู [ติดตั้งบน Cloudflare (Pages + D1)](docs/deploy-cloudflare.md)
 
 ```mermaid
 flowchart LR
@@ -27,7 +28,8 @@ flowchart LR
 | `sdk/js/analytics.js` | Browser SDK (`window.pulse`): batching, `sendBeacon` on page hide, persistent retry queue with backoff, UUIDv7 ids, sessions, SPA pageviews, opt-out |
 | `cmd/seed` | Generates 60 days of realistic demo data |
 | `loadtest/collector.js` | k6 spike test |
-| `docs/` | [Architecture design](docs/architecture.md), [integration guide](docs/INTEGRATION.md), [free single-VM deployment](docs/deploy-free-vm.md) |
+| `cloudflare/` | Serverless edition on Cloudflare Pages Functions + D1 (same API and dashboard) |
+| `docs/` | [Architecture design](docs/architecture.md), [integration guide](docs/INTEGRATION.md), [free single-VM deployment](docs/deploy-free-vm.md), [free Cloudflare edition](docs/deploy-cloudflare.md) |
 
 ## Quick start
 
