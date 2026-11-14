@@ -81,6 +81,10 @@ test("ingest then every dashboard route", async () => {
 
   const evs = await get(e, "events?days=7");
   assert.ok(evs.data.find((r) => r.value === "stage_start" && r.users === 2));
+  const ord = Object.fromEntries(evs.data.map((r) => [r.value, r.order]));
+  assert.equal(ord.stage_start, 2.5); // 3rd for u1, 2nd for u3
+  assert.equal(ord.stage_clear, 4);
+  assert.ok(ord.$pageview < ord.stage_start);
 
   const fn = await get(e, "funnel?days=7&steps=stage_start,stage_clear&window=3600");
   assert.deepEqual(fn.data, [{ event: "stage_start", users: 2 }, { event: "stage_clear", users: 1 }]);
