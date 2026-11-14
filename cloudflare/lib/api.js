@@ -178,7 +178,7 @@ async function compute(route, q, d, appId, off, now) {
       return store.breakdown(d, appId, r, dim, q.get("event") || "", limit);
     }
     case "events":
-      return store.breakdown(d, appId, daysRange(now, days(), off), "event", "", 100);
+      return store.eventNames(d, appId, daysRange(now, days(), off), 100);
     case "funnel": {
       const r = daysRange(now, days(), off);
       const steps = (q.get("steps") || "").split(",").map((s) => s.trim()).filter(Boolean);

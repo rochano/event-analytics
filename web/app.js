@@ -271,12 +271,16 @@
   // Steps are remembered per project. Without saved steps, guess them from
   // this project's own events: custom events with the most users first
   // (a rough funnel order), starting from $pageview when there are few.
-  function funnelKey() { return "pulse_funnel_" + (state.config ? state.config.app_id : ""); }
+  function funnelKey() { return "gstats_funnel_" + (state.config ? state.config.app_id : ""); }
 
+  // guessSteps takes the 4 custom events most users did, then puts them in
+  // the order players usually reach them (the server's "order" field).
   function guessSteps(rows) {
     var custom = rows.filter(function (r) { return r.value && r.value.charAt(0) !== "$"; })
       .sort(function (a, b) { return b.users - a.users || b.events - a.events; })
-      .slice(0, 4).map(function (r) { return r.value; });
+      .slice(0, 4)
+      .sort(function (a, b) { return (a.order || 0) - (b.order || 0); })
+      .map(function (r) { return r.value; });
     if (custom.length < 3 && rows.some(function (r) { return r.value === "$pageview"; })) custom.unshift("$pageview");
     return custom;
   }
@@ -297,9 +301,13 @@
     }).catch(function (e) { $("#funnel").innerHTML = '<p class="muted">' + esc(e.message) + "</p>"; });
   }
 
+  function saveFunnel() {
+    var steps = $("#funnel-steps").value.split(",").map(function (s) { return s.trim(); }).filter(Boolean).join(",");
+    try { localStorage.setItem(funnelKey(), steps); } catch (e) {}
+  }
+
   function runFunnel() {
     var steps = $("#funnel-steps").value;
-    try { localStorage.setItem(funnelKey(), steps.split(",").map(function (s) { return s.trim(); }).filter(Boolean).join(",")); } catch (e) {}
     var win = $("#funnel-window").value;
     $("#funnel").innerHTML = '<p class="muted">กำลังคำนวณ…</p>';
     api("funnel?days=" + state.days + "&window=" + win + "&steps=" + encodeURIComponent(steps)).then(function (res) {
@@ -415,7 +423,7 @@
   $$(".tabs button").forEach(function (b) { b.addEventListener("click", function () { state.tab = b.dataset.tab; render(); }); });
   $$(".seg button").forEach(function (b) { b.addEventListener("click", function () { state.days = Number(b.dataset.days); render(); }); });
   $$("[data-test]").forEach(function (b) { b.addEventListener("click", function () { sendTest(b.dataset.test); }); });
-  $("#funnel-form").addEventListener("submit", function (e) { e.preventDefault(); runFunnel(); });
+  $("#funnel-form").addEventListener("submit", function (e) { e.preventDefault(); saveFunnel(); runFunnel(); });
   $("#event-names").addEventListener("click", function (e) {
     var b = e.target.closest("button[data-ev]");
     if (!b) return;

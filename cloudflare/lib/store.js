@@ -65,6 +65,24 @@ export async function breakdown(db, appId, r, dim, event, limit) {
   return rows.map((x) => ({ value: x.value ?? "", events: x.events, users: x.users }));
 }
 
+// eventNames lists event names, most frequent first, with "order": the
+// average position of the event among each user's first occurrences
+// (1 = usually first). The dashboard uses it to guess funnel steps in order.
+export async function eventNames(db, appId, r, limit = 100) {
+  const rows = await breakdown(db, appId, r, "event", "", limit);
+  if (!rows.length) return rows;
+  const ord = await all(db,
+    `WITH f AS (
+       SELECT distinct_id AS d, event AS e, MIN(ts) AS t FROM events
+       WHERE app_id = ? AND ts >= ? AND ts < ? GROUP BY d, e
+     ), n AS (
+       SELECT e, ROW_NUMBER() OVER (PARTITION BY d ORDER BY t) AS rn FROM f
+     )
+     SELECT e AS value, AVG(rn) AS pos FROM n GROUP BY e`, appId, r.from, r.to);
+  const pos = new Map(ord.map((x) => [x.value, x.pos]));
+  return rows.map((x) => ({ ...x, order: Math.round((pos.get(x.value) || 0) * 100) / 100 }));
+}
+
 // funnel counts users who did the steps in order within window seconds,
 // like ClickHouse windowFunnel: the deepest step reached from any start.
 export async function funnel(db, appId, r, steps, window) {
