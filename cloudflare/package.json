@@ -1,0 +1,10 @@
+{
+  "name": "event-analytics-cloudflare",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs && npx wrangler pages dev public --d1 DB --binding PROJECTS=\"1|pk_dev|rk_dev|*\"",
+    "test": "node --test --no-warnings test/*.test.js"
+  }
+}
