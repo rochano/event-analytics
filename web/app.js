@@ -198,9 +198,133 @@
       paths + '</svg><div class="axis">' + ticks.map(function (t) { return "<span>" + esc(lab(t)) + "</span>"; }).join("") + "</div>";
   }
 
+  // ---- Google Search Console and GA4 -----------------------------------------
+
+  var GUIDE = "https://github.com/rochano/event-analytics/blob/main/docs/google-search-console.md";
+  var GA4_TO_GSTATS = { "Organic Search": "Organic Search", "Direct": "Direct", "Referral": "Referral", "Organic Social": "Social",
+    "Paid Social": "Paid", "Paid Search": "Paid", "Paid Other": "Paid", "Display": "Paid", "Email": "Email" };
+
+  function apiPost(path) {
+    return fetch("/api/" + path, { method: "POST", headers: { "X-Read-Key": state.key } }).then(function (r) {
+      return r.json().then(function (b) { if (!r.ok) throw new Error(b.error || r.statusText); return b.data; });
+    });
+  }
+
+  function pct(x, digits) { return (x * 100).toFixed(digits == null ? 1 : digits) + "%"; }
+  function pos(x) { return x ? x.toFixed(1) : "–"; }
+  function when(iso) {
+    if (!iso) return "";
+    var m = Math.round((Date.now() - Date.parse(iso)) / 60000);
+    return m < 1 ? "เมื่อสักครู่" : m < 60 ? m + " นาทีที่แล้ว" : m < 1440 ? Math.round(m / 60) + " ชั่วโมงที่แล้ว" : Math.round(m / 1440) + " วันที่แล้ว";
+  }
+
+  function loadGoogle(seo, round) {
+    round = round || 0;
+    var d = state.days;
+    api("google?days=" + d).then(function (g) {
+      if (state.tab !== "seo" || state.days !== d) return;
+      renderGoogle(g, seo);
+      // The first import arrives in small pieces: ask for the next one.
+      var first = g.linked && !g.synced_at && !g.gsc_error && !g.ga4_error;
+      if ((g.backfilling || first) && round < 15 && g.service_account) {
+        $("#g-status").textContent = "กำลังดึงข้อมูลย้อนหลังจาก Google...";
+        apiPost("google/sync").then(function () { loadGoogle(seo, round + 1); }).catch(function (e) { $("#g-status").textContent = e.message; });
+      }
+    }).catch(function (e) {
+      // The Go edition has no Google import yet: hide the card there.
+      if (/not found/i.test(e.message)) { $("#g-card").classList.add("hidden"); return; }
+      $("#g-body").innerHTML = '<p class="muted">' + esc(e.message) + "</p>";
+    });
+  }
+
+  function renderGoogle(g, seo) {
+    var body = $("#g-body");
+    $("#ga4-card").classList.toggle("hidden", !g.ga4);
+    if (!g.linked) {
+      $("#g-status").textContent = "ยังไม่ได้เชื่อม";
+      body.innerHTML = '<p>เชื่อม Google Search Console เพื่อดูว่าคนค้นคำว่าอะไรแล้วเจอเกม เกมขึ้นอันดับเท่าไร และมีคนเห็นกี่ครั้งก่อนกดเข้า</p>' +
+        (g.setup_error ? '<p class="msg err">' + esc(g.setup_error) + "</p>" :
+          g.service_account ? '<ol class="steps"><li>ใน Search Console ไปที่ <strong>Settings &gt; Users and permissions &gt; Add user</strong> ใส่อีเมลนี้ สิทธิ์ <strong>Restricted</strong>:<br><code class="mono">' + esc(g.service_account) + '</code></li><li>(ถ้าใช้ GA4) ใน GA4 ไปที่ <strong>Admin &gt; Property access management</strong> เพิ่มอีเมลเดียวกัน สิทธิ์ <strong>Viewer</strong></li><li>ผู้ดูแลใส่ที่อยู่เว็บและ GA4 Property ID ของโปรเจกต์นี้ในหน้า <a href="admin.html">จัดการโปรเจกต์</a></li></ol>' :
+          '<p class="muted">ผู้ดูแลระบบยังไม่ได้ตั้ง Google service account</p>') +
+        '<p><a href="' + GUIDE + '" target="_blank" rel="noopener">อ่านวิธีตั้งค่าทีละขั้น</a></p>';
+      return;
+    }
+    var errs = [g.gsc_error && "Search Console: " + g.gsc_error, g.ga4_error && "GA4: " + g.ga4_error].filter(Boolean);
+    $("#g-status").innerHTML = (g.synced_at ? "อัปเดต " + esc(when(g.synced_at)) + " · " : "") +
+      '<button type="button" class="linkish" id="g-sync">ดึงข้อมูลใหม่</button>';
+    var html = errs.map(function (e) { return '<p class="msg err">' + esc(e) + "</p>"; }).join("");
+
+    var s = g.gsc;
+    if (s) {
+      var t = s.totals, p = s.previous;
+      html += '<div class="kpis inner-kpis">' + [
+        ["คลิกจาก Google", fmt(t.clicks), chg(t.clicks, p.clicks)],
+        ["แสดงในผลค้นหา", fmt(t.impressions), chg(t.impressions, p.impressions)],
+        ["อัตราการคลิก (CTR)", pct(t.ctr), chg(t.ctr, p.ctr)],
+        ["อันดับเฉลี่ย", pos(t.position), p.position && t.position ? '<span class="delta ' + (t.position <= p.position ? "good" : "bad") + '">' + (t.position <= p.position ? "▲ ดีขึ้น " : "▼ ลดลง ") + Math.abs(t.position - p.position).toFixed(1) + "</span>" : '<span class="muted">–</span>']
+      ].map(function (k) {
+        return '<div class="kpi"><span class="label">' + k[0] + '</span><span class="value">' + k[1] + "</span>" + k[2] + "</div>";
+      }).join("") + "</div>";
+      var norm = function (vals) { var m = Math.max.apply(null, vals) || 1; return vals.map(function (v) { return v / m; }); };
+      html += '<h3>คลิกและการแสดงผลรายวัน</h3>' + multiLine([
+        { color: "#9CA3AF", values: norm(s.trend.map(function (x) { return x.impressions; })) },
+        { color: "#047857", values: norm(s.trend.map(function (x) { return x.clicks; })) }
+      ], s.trend.map(function (x) { return x.t; })) +
+        '<div class="legend"><span><i style="background:#047857"></i>คลิก</span><span><i style="background:#9CA3AF"></i>แสดงผล</span><span class="muted">แต่ละเส้นใช้สเกลของตัวเอง' +
+        (s.last_day ? " · Google มีข้อมูลถึง " + esc(s.last_day) + " (ช้ากว่าจริง 1-3 วัน จึงแสดง " + state.days + " วันล่าสุดที่มีข้อมูล)" : "") + "</span></div>";
+
+      html += '<div class="grid2 inner"><div><h3>คำค้นที่คนใช้หาเจอ</h3><div class="scroll"><table class="table compact"><thead><tr><th>คำค้น</th><th class="num">คลิก</th><th class="num">แสดงผล</th><th class="num">CTR</th><th class="num">อันดับ</th><th class="num">เทียบก่อน</th></tr></thead><tbody>' +
+        (s.queries.slice(0, 15).map(function (q) {
+          return "<tr><td>" + esc(q.query) + '</td><td class="num">' + fmt(q.clicks) + '</td><td class="num">' + fmt(q.impressions) + '</td><td class="num">' + pct(q.ctr, 0) +
+            '</td><td class="num">' + pos(q.position) + '</td><td class="num">' + chg(q.clicks, q.previous) + "</td></tr>";
+        }).join("") || '<tr><td colspan="6" class="muted">ยังไม่มีคำค้น (Google ไม่แสดงคำที่มีคนค้นน้อยมาก)</td></tr>') + "</tbody></table></div></div>";
+
+      html += '<div><h3>โอกาส: คำที่เกือบติดหน้าแรก</h3><p class="muted">อันดับ 4-20 และมีคนเห็นแล้ว ปรับ title, description และเนื้อหาในหน้าให้ตอบคำนี้ตรง ๆ จะได้คลิกเพิ่มเร็วที่สุด</p>' +
+        (s.opportunities.length ? '<div class="scroll"><table class="table compact"><thead><tr><th>คำค้น</th><th class="num">แสดงผล</th><th class="num">อันดับ</th></tr></thead><tbody>' +
+          s.opportunities.map(function (q) {
+            return "<tr><td>" + esc(q.query) + '</td><td class="num">' + fmt(q.impressions) + '</td><td class="num">' + pos(q.position) + "</td></tr>";
+          }).join("") + "</tbody></table></div>" : '<p class="muted">ยังไม่มีคำในช่วงนี้</p>') + "</div></div>";
+
+      var search = {};
+      ((seo && seo.landing) || []).forEach(function (l) { search[l.page] = l.search; });
+      html += '<h3>หน้าที่ขึ้นใน Google</h3><div class="scroll"><table class="table"><thead><tr><th>หน้า</th><th class="num">คลิก</th><th class="num">แสดงผล</th><th class="num">CTR</th><th class="num">อันดับ</th><th class="num">เข้ามาจริง (gstats)</th></tr></thead><tbody>' +
+        (s.pages.slice(0, 20).map(function (pg) {
+          return '<tr><td class="mono">' + esc(pg.path) + '</td><td class="num">' + fmt(pg.clicks) + '</td><td class="num">' + fmt(pg.impressions) + '</td><td class="num">' + pct(pg.ctr, 0) +
+            '</td><td class="num">' + pos(pg.position) + '</td><td class="num">' + (search[pg.path] != null ? fmt(search[pg.path]) : "–") + "</td></tr>";
+        }).join("") || '<tr><td colspan="6" class="muted">ยังไม่มีข้อมูล</td></tr>') + "</tbody></table></div>" +
+        '<p class="muted">"เข้ามาจริง" คือ session ที่ gstats นับว่ามาจาก Search แล้วเริ่มที่หน้านั้น ถ้าน้อยกว่าคลิกมาก อาจเป็นเพราะหน้าโหลดช้าหรือคนปิดก่อนโหลดเสร็จ</p>';
+    } else if (g.gsc_site === "") {
+      html += '<p class="muted">ยังไม่ได้ใส่เว็บใน Search Console (เชื่อมแค่ GA4)</p>';
+    }
+    body.innerHTML = html || '<p class="muted">กำลังดึงข้อมูลครั้งแรก...</p>';
+    var btn = $("#g-sync");
+    if (btn) btn.addEventListener("click", function () {
+      btn.disabled = true; btn.textContent = "กำลังดึง...";
+      apiPost("google/sync").then(function () { loadGoogle(seo); }).catch(function (e) { $("#g-status").textContent = e.message; });
+    });
+
+    if (g.ga4) {
+      var ours = {};
+      ((seo && seo.channels) || []).forEach(function (c) { ours[c.channel] = c.sessions; });
+      var mapped = {};
+      $("#ga4-channels").innerHTML = '<thead><tr><th>ช่องทาง (GA4)</th><th class="num">GA4</th><th class="num">เทียบก่อน</th><th class="num">มีส่วนร่วม</th><th class="num">Key events</th><th class="num">gstats</th></tr></thead><tbody>' +
+        (g.ga4.channels.map(function (c) {
+          var k = GA4_TO_GSTATS[c.channel];
+          var mine = k && !mapped[k] && ours[k] != null ? fmt(ours[k]) : "–";
+          if (k) mapped[k] = true;
+          return "<tr><td>" + esc(c.channel) + '</td><td class="num">' + fmt(c.sessions) + '</td><td class="num">' + chg(c.sessions, c.previous) + '</td><td class="num">' + pct(c.engagement_rate, 0) +
+            '</td><td class="num">' + fmt(c.key_events) + '</td><td class="num">' + mine + "</td></tr>";
+        }).join("") || '<tr><td colspan="6" class="muted">ยังไม่มีข้อมูล</td></tr>') +
+        '<tr><td><strong>รวม</strong></td><td class="num"><strong>' + fmt(g.ga4.sessions) + '</strong></td><td class="num">' + chg(g.ga4.sessions, g.ga4.previous) + '</td><td class="num">' +
+        (g.ga4.sessions ? pct(g.ga4.engaged / g.ga4.sessions, 0) : "–") + '</td><td class="num">' + fmt(g.ga4.key_events) + '</td><td class="num"><strong>' + (seo ? fmt(seo.sessions) : "–") + "</strong></td></tr></tbody>";
+      $("#ga4-note").textContent = "ตัวเลขสองฝั่งไม่ตรงกันเป๊ะเป็นเรื่องปกติ: GA4 ถูกบล็อกโดยตัวบล็อกโฆษณาบ่อยกว่า และนับคนจาก AI (ChatGPT ฯลฯ) รวมไว้ใน Referral";
+    }
+  }
+
   function loadSEO() {
     var d = state.days;
     api("seo?days=" + d).then(function (r) {
+      loadGoogle(r);
       var by = {};
       r.channels.forEach(function (c) { by[c.channel] = c; });
       var org = by["Organic Search"], ai = by["AI"];
@@ -239,7 +363,7 @@
           return '<tr><td class="mono">' + esc(l.page) + '</td><td class="num">' + fmt(l.sessions) + '</td><td class="num">' + fmt(l.search) +
             '</td><td class="num">' + fmt(l.ai) + '</td><td class="num">' + (l.bounce_rate * 100).toFixed(0) + '%</td><td class="num">' + chg(l.sessions, l.previous) + "</td></tr>";
         }).join("") || '<tr><td colspan="6" class="muted">ยังไม่มีข้อมูล</td></tr>') + "</tbody>";
-    }).catch(noop);
+    }).catch(function () { loadGoogle(null); });
 
     api("vitals?days=" + d).then(function (v) {
       var names = { lcp: ["LCP", "โหลดเนื้อหาหลักเสร็จ"], inp: ["INP", "ตอบสนองเมื่อกด"], cls: ["CLS", "หน้าไม่กระตุก"], fcp: ["FCP", "เริ่มเห็นหน้าเว็บ"], ttfb: ["TTFB", "เซิร์ฟเวอร์ตอบกลับ"] };

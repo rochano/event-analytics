@@ -52,6 +52,11 @@
     </div>
 
     <div class="card">
+      <div class="card-head"><h2>เชื่อม Google Search Console และ GA4</h2><span class="muted" id="g-sa"></span></div>
+      <p class="muted">ข้อมูลดึงเข้ามาวันละหลายรอบ แล้วแสดงในแท็บ SEO ของ dashboard <a href="https://github.com/rochano/event-analytics/blob/main/docs/google-search-console.md" target="_blank" rel="noopener">วิธีตั้งค่า</a></p>
+      <div id="g-list" style="margin-top:12px"></div>
+    </div>
+    <div class="card">
       <div class="card-head"><h2>ลูกค้าที่สมัครใช้งาน</h2><span class="muted" id="users-month"></span></div>
       <div class="scroll" style="margin-top:12px"><table class="table compact">
         <thead><tr><th>อีเมล</th><th class="num">โปรเจกต์</th><th class="num">ใช้เดือนนี้</th><th class="num">โควตา/เดือน</th><th></th></tr></thead>
@@ -137,8 +142,49 @@
       .then(loadUsers).catch(function (err) { $("#users-msg").className = "msg err"; $("#users-msg").textContent = err.message; });
   });
 
+  function gStatus(p) {
+    if (!p.linked) return '<span class="muted">ยังไม่ได้เชื่อม</span>';
+    var e = [p.gsc_error && "Search Console: " + p.gsc_error, p.ga4_error && "GA4: " + p.ga4_error].filter(Boolean);
+    if (e.length) return '<span class="msg err">' + esc(e.join(" · ")) + "</span>";
+    if (p.backfilling) return '<span class="muted">กำลังดึงข้อมูลย้อนหลัง (เปิดแท็บ SEO หรือกด "ดึงตอนนี้" ซ้ำ)</span>';
+    return '<span class="msg ok">ใช้งานได้' + (p.synced_at ? " · อัปเดต " + esc(new Date(p.synced_at).toLocaleString("th-TH")) : "") + "</span>";
+  }
+  function loadGoogle() {
+    return api("GET", "google").then(function (d) {
+      $("#g-sa").innerHTML = d.setup_error ? '<span class="msg err">' + esc(d.setup_error) + "</span>" :
+        d.service_account ? 'Service account: <code class="mono">' + esc(d.service_account) + "</code>" : '<span class="msg err">ยังไม่ได้ตั้ง GOOGLE_SERVICE_ACCOUNT</span>';
+      $("#g-list").innerHTML = d.projects.map(function (p) {
+        return '<form class="proj" data-gid="' + p.app_id + '">' +
+          '<div class="proj-head"><strong>' + esc(p.name || ("โปรเจกต์ " + p.app_id)) + '</strong><span class="badge">#' + p.app_id + "</span></div>" +
+          '<div class="row wrap-row" style="align-items:flex-end">' +
+            '<div class="field"><label>เว็บใน Search Console</label><input name="gsc_site" value="' + esc(p.gsc_site) + '" placeholder="https://mygame.pages.dev/ หรือ sc-domain:mygame.com"></div>' +
+            '<div class="field"><label>GA4 Property ID (ไม่บังคับ)</label><input name="ga4_property" value="' + esc(p.ga4_property) + '" placeholder="เช่น 412345678" inputmode="numeric"></div>' +
+            '<button class="primary" type="submit">บันทึก</button>' +
+            (p.linked ? '<button class="ghost" type="button" data-gsync>ดึงตอนนี้</button>' : "") +
+          "</div><p class=\"msg\" data-gmsg>" + gStatus(p) + "</p></form>";
+      }).join("") || '<p class="muted">ยังไม่มีโปรเจกต์</p>';
+    });
+  }
+  $("#g-list").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var f = e.target;
+    var msg = f.querySelector("[data-gmsg]");
+    msg.innerHTML = '<span class="muted">กำลังบันทึกและลองดึงข้อมูล...</span>';
+    api("PUT", "google/" + f.getAttribute("data-gid"), { gsc_site: f.gsc_site.value, ga4_property: f.ga4_property.value })
+      .then(loadGoogle).catch(function (err) { msg.innerHTML = '<span class="msg err">' + esc(err.message) + "</span>"; });
+  });
+  $("#g-list").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-gsync]");
+    if (!b) return;
+    var f = b.closest("form");
+    var msg = f.querySelector("[data-gmsg]");
+    msg.innerHTML = '<span class="muted">กำลังดึง...</span>';
+    api("POST", "google/" + f.getAttribute("data-gid") + "/sync").then(loadGoogle)
+      .catch(function (err) { msg.innerHTML = '<span class="msg err">' + esc(err.message) + "</span>"; });
+  });
   function load() {
     loadUsers().catch(function () {});
+    loadGoogle().catch(function (e) { $("#g-list").innerHTML = '<p class="msg err">' + esc(e.message) + "</p>"; });
     return api("GET", "projects").then(function (list) {
       $("#login").classList.add("hidden");
       $("#app").classList.remove("hidden");

@@ -12,6 +12,7 @@ import { buildInsights } from "./insights.js";
 import { daysRange, previous } from "./time.js";
 import { addUsage, forgetUsage, monthOf, overQuota } from "./usage.js";
 import { ACCOUNTS_SCHEMA } from "./accounts.js";
+import * as google from "./google.js";
 
 const json = (status, body, headers = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
@@ -117,10 +118,10 @@ function intParam(q, name, def, lo, hi, msg) {
   return v;
 }
 
-export async function handleApi(request, env, now = Date.now()) {
+export async function handleApi(request, env, now = Date.now(), waitUntil = (p) => p.catch(() => {})) {
   const url = new URL(request.url);
   const route = url.pathname.replace(/^\/api\/?/, "").replace(/\/$/, "");
-  if (route === "admin" || route.startsWith("admin/")) return handleAdmin(request, env, route.slice(6));
+  if (route === "admin" || route.startsWith("admin/")) return handleAdmin(request, env, route.slice(6), now);
   if (route.startsWith("account/")) return handleAccount(request, env, route.slice(8), now);
   const key = request.headers.get("X-Read-Key") || url.searchParams.get("key") || "";
   const proj = key ? await byReadKey(env, key) : null;
@@ -130,6 +131,7 @@ export async function handleApi(request, env, now = Date.now()) {
   if (route === "config") {
     return json(200, { app_id: proj.appId, name: proj.name, write_key: proj.writeKey, collector_url: url.origin, timezone: tzLabel(off) });
   }
+  if (route === "google" || route === "google/sync") return handleGoogle(request, env, route, proj, off, now, waitUntil);
   if (!TTL[route]) return json(404, { error: "not found" });
 
   const q = new URLSearchParams(url.searchParams);
@@ -223,6 +225,42 @@ async function compute(route, q, d, appId, off, now) {
   throw new BadRequest("unknown route");
 }
 
+// ---- Google Search Console and GA4 (read key) ---------------------------------
+
+// GET /api/google?days=N: stored Search Console and GA4 numbers, and a sync in
+// the background when one is due. POST /api/google/sync: sync now (at most
+// every 10 minutes, or one backfill chunk at a time) and return the status.
+async function handleGoogle(request, env, route, proj, off, now, waitUntil) {
+  try {
+    const d = db(env);
+    await google.ensureGoogle(d);
+    const link = await google.getLink(d, proj.appId);
+    const canSync = google.serviceAccount(env) && !google.serviceAccount(env).error;
+    if (route === "google/sync") {
+      if (request.method !== "POST") return json(405, { error: "use POST" });
+      let after = link;
+      if (canSync && google.due(link, now, google.MANUAL_EVERY_MS)) after = await google.syncProject(env, proj.appId, now);
+      clearCache(proj.appId);
+      return json(200, { data: google.statusOf(env, after, now) });
+    }
+    const q = new URL(request.url).searchParams;
+    const days = intParam(q, "days", 30, 1, 400, "days must be 1..400");
+    if (canSync && google.due(link, now) && !google.needsBackfill(link, now)) {
+      waitUntil(google.syncProject(env, proj.appId, now).catch((e) => console.error("google sync failed", e && e.message)));
+    }
+    return json(200, { data: await google.report(env, proj.appId, daysRange(now, days, off), off, now), computed_at: new Date(now).toISOString() });
+  } catch (e) {
+    if (e instanceof BadRequest) return json(400, { error: e.message });
+    if (e instanceof google.GoogleError) return json(e.status, { error: e.message });
+    console.error("google failed", e && e.message);
+    return json(500, { error: "query failed" });
+  }
+}
+
+function clearCache(appId) {
+  for (const k of cache.keys()) if (k.startsWith(appId + "|")) cache.delete(k);
+}
+
 // ---- Admin: list, add and edit projects (needs the ADMIN_KEY secret) -----------
 
 const publicProject = (p) => ({
@@ -230,7 +268,7 @@ const publicProject = (p) => ({
   origins: p.origins, retention_days: p.retentionDays, source: p.source, editable: p.source === "db",
 });
 
-async function handleAdmin(request, env, sub) {
+async function handleAdmin(request, env, sub, now = Date.now()) {
   if (!env.ADMIN_KEY) return json(503, { error: "ยังไม่ได้ตั้ง ADMIN_KEY (Settings > Variables and Secrets)" });
   if (!sameKey(String(env.ADMIN_KEY).trim(), request.headers.get("X-Admin-Key") || "")) return json(401, { error: "รหัสผู้ดูแลไม่ถูกต้อง" });
   try {
@@ -244,6 +282,43 @@ async function handleAdmin(request, env, sub) {
     const m = /^projects\/(\d+)$/.exec(sub);
     if (m && request.method === "PATCH") {
       return json(200, { data: publicProject(await updateProject(env, Number(m[1]), await request.json().catch(() => ({})))) });
+    }
+    if (sub === "google" && request.method === "GET") {
+      const links = new Map((await google.allLinks(db(env))).map((l) => [l.app_id, l]));
+      const projects = await allProjects(env);
+      const st = google.statusOf(env, null, now);
+      return json(200, { data: {
+        service_account: st.service_account, setup_error: st.setup_error,
+        projects: projects.map((p) => ({ app_id: p.appId, name: p.name || "", ...google.statusOf(env, links.get(p.appId), now) })),
+      } });
+    }
+    const mg = /^google\/(\d+)(\/sync)?$/.exec(sub);
+    if (mg && !mg[2] && request.method === "PUT") {
+      const appId = Number(mg[1]);
+      if (!(await allProjects(env)).some((p) => p.appId === appId)) throw new AdminError(404, "ไม่พบโปรเจกต์");
+      let link = await google.setLink(db(env), appId, await request.json().catch(() => ({})));
+      // Try right away, so a missing permission shows up now.
+      if (google.serviceAccount(env) && !google.serviceAccount(env).error && (link.gsc_site || link.ga4_property)) {
+        link = await google.syncProject(env, appId, now);
+      }
+      clearCache(appId);
+      return json(200, { data: { app_id: appId, ...google.statusOf(env, link, now) } });
+    }
+    if (mg && mg[2] && request.method === "POST") {
+      const appId = Number(mg[1]);
+      const link = await google.syncProject(env, appId, now);
+      if (!link) throw new AdminError(404, "โปรเจกต์นี้ยังไม่ได้เชื่อม Google");
+      clearCache(appId);
+      return json(200, { data: { app_id: appId, ...google.statusOf(env, link, now) } });
+    }
+    // For an outside scheduler (e.g. a GitHub Actions cron): sync what is due.
+    if (sub === "google/sync" && request.method === "POST") {
+      const done = [];
+      for (const l of await google.allLinks(db(env))) {
+        if (done.length >= 3) break; // keep one request short; call again for more
+        if (google.due(l, now)) done.push((await google.syncProject(env, l.app_id, now).catch(() => null))?.app_id ?? l.app_id);
+      }
+      return json(200, { data: { synced: done } });
     }
     if (sub === "users" && request.method === "GET") {
       const d = db(env);
@@ -268,7 +343,7 @@ async function handleAdmin(request, env, sub) {
     }
     return json(404, { error: "not found" });
   } catch (e) {
-    if (e instanceof AdminError || e.status) return json(e.status || 400, { error: e.message });
+    if (e instanceof AdminError || e instanceof google.GoogleError || e.status) return json(e.status || 400, { error: e.message });
     console.error("admin failed", e && e.message);
     return json(500, { error: "admin failed" });
   }

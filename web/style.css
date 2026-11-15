@@ -114,3 +114,11 @@ button.ghost { background: #fff; color: var(--ink); border: 1px solid #D1D5DB; b
 a { color: var(--blue); }
 @media (max-width: 520px) { .kv { grid-template-columns: 1fr; } .kv span:nth-child(odd) { margin-top: 6px; } }
 .chip-btn { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 4px 10px; min-height: 32px; margin: 2px 2px 2px 0; font: inherit; font-size: 12.5px; color: var(--ink); cursor: pointer; }
+
+.inner-kpis { margin: 12px 0; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.inner-kpis .kpi { padding: 12px; }
+.inner-kpis .kpi .value { font-size: 22px; }
+button.linkish { background: none; border: 0; padding: 0; color: var(--blue); font: inherit; cursor: pointer; text-decoration: underline; }
+button.linkish:disabled { color: var(--muted); cursor: default; }
+ol.steps { padding-left: 20px; line-height: 1.7; }
+ol.steps code { word-break: break-all; }
