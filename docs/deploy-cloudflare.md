@@ -77,6 +77,7 @@ Dashboard และ SDK เป็นตัวเดียวกับเวอ�
 | `ADMIN_KEY` | Secret | รหัสผู้ดูแล ยาวอย่างน้อย 24 ตัว ใช้เข้า `/admin.html` |
 | `FREE_QUOTA` | Text | event ต่อเดือนของบัญชีใหม่ (ค่าเริ่มต้น `10000`) |
 | `SIGNUP` | Text | ใส่ `off` เพื่อปิดรับสมัครชั่วคราว |
+| `GOOGLE_SERVICE_ACCOUNT` | Secret | JSON key ของ Google service account สำหรับดึง Search Console และ GA4 เข้าแท็บ SEO ดู [google-search-console.md](google-search-console.md) |
 
 - **`/account.html`** ลูกค้าสมัครด้วยอีเมลและรหัสผ่าน สร้างโปรเจกต์ (สูงสุด 10) ได้ key และโค้ดพร้อมใช้ เห็นเฉพาะโปรเจกต์ของตัวเอง และดูว่าใช้ event ไปเท่าไรในเดือนนี้
 - **`/admin.html`** ผู้ดูแลเห็นทุกโปรเจกต์ เพิ่มโปรเจกต์ที่ไม่มีโควตา (สำหรับเกมของคุณเอง) และเปลี่ยนโควตาของลูกค้าแต่ละคน เช่นหลังลูกค้าจ่ายเงิน

@@ -111,7 +111,8 @@ go run ./cmd/queryapi              # uses localhost:9000, serves ./web
 
 - **SEO tab**: visits by channel (Search, AI, Social, Referral, Direct) per day, the search engines and AI assistants that send people, landing pages with search/AI visits and bounce rate, and Core Web Vitals (p75 LCP, INP, CLS, FCP, TTFB) by device and page.
 - **Insights** (top of the overview): rule-based findings such as traffic drops or spikes, search or AI traffic rising or falling, pages people leave at once, slow pages on mobile, and game events that fell sharply. Thresholds ignore small numbers.
-- API: `/api/seo`, `/api/vitals`, `/api/insights` (all take `days`).
+- **Google Search Console and GA4** (Cloudflare edition): queries, impressions, clicks, CTR and position per query and page, "almost page one" opportunities, and GA4 sessions by channel next to gstats. One read-only service account, data stored in D1. Setup (Thai): [docs/google-search-console.md](docs/google-search-console.md).
+- API: `/api/seo`, `/api/vitals`, `/api/insights`, `/api/google` (all take `days`).
 
 ## Roadmap (from the design doc)
 

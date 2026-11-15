@@ -65,6 +65,15 @@
   </section>
 
   <section id="tab-seo" class="tab hidden">
+    <div class="card" id="g-card">
+      <div class="card-head"><h2>Google Search (จาก Search Console)</h2><span class="muted" id="g-status"></span></div>
+      <div id="g-body"><p class="muted">กำลังโหลด...</p></div>
+    </div>
+    <div class="card hidden" id="ga4-card">
+      <div class="card-head"><h2>เทียบกับ Google Analytics 4</h2><span class="muted">จำนวน session ที่ GA4 นับได้ เทียบกับ gstats</span></div>
+      <div class="scroll"><table class="table compact" id="ga4-channels"></table></div>
+      <p class="muted" id="ga4-note"></p>
+    </div>
     <div class="kpis" id="seo-kpis"></div>
     <div class="card">
       <div class="card-head"><h2>การเข้าชมแยกตามช่องทาง (รายวัน)</h2><span class="muted">นับจากหน้าแรกที่เข้ามาในแต่ละ session</span></div>
